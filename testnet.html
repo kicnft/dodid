@@ -1,0 +1,1543 @@
+<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta charset="utf-8" />
+<title>DoDiD!</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=1">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.8/themes/default/style.min.css" />
+<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jquery-toast-plugin/1.3.2/jquery.toast.min.css" integrity="sha512-wJgJNTBBkLit7ymC6vvzM1EcSWeM9mmOu+1USHaRBbHkm6W9EgM0HY27+UtUaprntaYQJF75rc8gjxllKs5OIQ==" crossorigin="anonymous" />
+<style>
+canvas {
+	width:100%
+}
+.keyarea {
+  resize: none;
+}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.0/jquery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.8/jstree.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-toast-plugin/1.3.2/jquery.toast.min.js" integrity="sha512-zlWWyZq71UMApAjih4WkaRpikgY9Bz1oXIW5G0fED4vk14JjGlQ1UmkGM392jEULP8jbNMiwLWdM8Z87Hu88Fw==" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+<script src="https://xembook.github.io/nem2-browserify/symbol-sdk-pack-2.0.4.js"></script>
+<script src="https://xembook.github.io/symbol-browserify/metal-on-symbol-0.2.2.js"></script>
+<script src="config.js"></script><!-- configSymbolApplication -->
+<script src="symapp.js"></script>
+</head>
+<body>
+<div class="container">
+	<h1>DoDiD!</h1>
+	<br>
+	<b>Multisig Tree</b>
+	<button onclick="clickAddMultisig()">追加</button>
+	<button onclick="clickDelMultisig()">削除</button>
+	<button onclick="clickUpdMultisigMinValue()">閾値変更</button>
+	<div id="multisig_tree"></div><br>
+	<b>Address List</b>
+	<button onclick="clickAddAddress()">アドレス追加</button>
+	<button onclick="clickAddGroup()">グループ追加</button>
+	<button onclick="clickDelGroup()">削除</button>
+	<div id="address_tree"></div><br/>
+	<button onclick="clickTransfer()">転送</button>
+	<hr>
+	<b>Transaction List</b>
+	<div id="transaction_tree"></div>
+	<button onclick="clickTransaction()" >署名・通知</button>
+	<hr>
+	<b>Information</b>
+	<div id="partial_transaction_tree"></div>
+	<hr>
+	<b>Address QR</b>
+	<div id="signer_address"></div>
+	<div id="signer_address_plain"></div>
+	<button onclick="clickKey()">鍵情報</button>
+
+</div><!-- container -->
+
+<!-- QRスキャンモーダル -->
+<div class="modal fade" id="modal_qr_scan" tabindex="-1" role="dialog">
+	<div class="modal-dialog" role="document"><div class="modal-content">
+
+		<div class="modal-header">
+			<h5 class="modal-title">QRスキャン</h5>
+			<button type="button" class="close" data-dismiss="modal" aria-label="閉じる"><span aria-hidden="true">&times;</span></button>
+		</div>
+
+		<div class="modal-body">
+			<label></label>
+			<div class="input-group">
+				<label class="input-group-btn mr-1">
+					<span class="btn btn-primary">
+						画像でスキャン<input id="file_image" type="file" style="display:none">
+					</span>
+				</label>
+			</div>
+			<canvas id="canvas"  width="100%" hidden></canvas>
+			<div id="scan_data" class="text-break"></div>
+			<label>ネームスペースで登録</label>
+			<input type="text" id="modal_qr_scan_namespace">
+		</div>
+
+		<div class="modal-footer">
+			<button type="button" class="btn btn-default" data-dismiss="modal">キャンセル</button>
+			<button type="button" class="btn btn-primary" onclick="clickModalQrScan()">OK</button>
+		</div><!-- /.modal-footer -->
+	</div></div><!-- /.modal-content --><!-- /.modal-dialog -->
+</div><!-- /.modal -->
+
+<!-- 転送モザイク設定モーダル -->
+<div class="modal fade" id="modal_transfer" tabindex="-1" role="dialog">
+<div class="modal-dialog" role="document"><div class="modal-content">
+
+	<div class="modal-header">
+		<h5 class="modal-title">モザイク選択</h5>
+		<button type="button" class="close" data-dismiss="modal" aria-label="閉じる"><span aria-hidden="true">&times;</span></button>
+	</div>
+	<div class="modal-body">
+		<label>選択してください</label>
+
+		<!-- テンプレート要素 -->
+		<template id="form_template">
+		<div class="form_mosaic">
+			<label>モザイクID:</label>
+			<select></select><br>
+			<label>数量:</label>
+			<input type="text">
+			<button class="remove-button">取り消し</button>
+		</div>
+		</template>
+		<button onclick="clickModalAddMosaicForm()">モザイク追加</button>
+
+		<div id="form-container"></div>
+		<hr>
+		<label>メッセージ:</label>
+		<input type="text" id="message">
+	</div>
+	<div class="modal-footer">
+		<button type="button" class="btn btn-primary" onclick="clickModalTransfer()">OK</button>
+		<button type="button" class="btn btn-default" data-dismiss="modal">キャンセル</button>
+
+	</div><!-- /.modal-footer -->
+</div></div><!-- /.modal-content --><!-- /.modal-dialog -->
+</div><!-- /.modal -->
+
+
+<!-- マルチシグ閾値変更モーダル -->
+<div class="modal fade" id="modal_mod_multisig" tabindex="-1" role="dialog">
+<div class="modal-dialog" role="document"><div class="modal-content">
+
+	<div class="modal-header">
+		<h5 class="modal-title">マルチシグ閾値変更</h5>
+		<button type="button" class="close" data-dismiss="modal" aria-label="閉じる"><span aria-hidden="true">&times;</span></button>
+	</div>
+	<div class="modal-body">
+		<label>選択してください</label>
+
+		<p>トランザクションを実行するために必要な署名数: <span id="valueMinApproval">0</span></p>
+		<button id="decreaseMinApproval">減少</button>
+		<button id="increaseMinApproval">増加</button>
+
+		<p>連署者を除外するために必要な署名数: <span id="valueMinRemoval">0</span></p>
+		<button id="decreaseMinRemoval">減少</button>
+		<button id="increaseMinRemoval">増加</button>
+	</div>
+	<div class="modal-footer">
+		<button type="button" class="btn btn-primary" data-dismiss="modal" onclick="clickModalModMultisig()">OK</button>
+		<button type="button" class="btn btn-default" data-dismiss="modal">キャンセル</button>
+	</div><!-- /.modal-footer -->
+</div></div><!-- /.modal-content --><!-- /.modal-dialog -->
+</div><!-- /.modal -->
+
+<!-- 連署モーダル -->
+<div class="modal fade" id="modal_cosign" tabindex="-1" role="dialog">
+<div class="modal-dialog" role="document"><div class="modal-content">
+
+	<div class="modal-header">
+		<h5 class="modal-title">連署待ちトランザクションがあります</h5>
+		<button type="button" class="close" data-dismiss="modal" aria-label="閉じる"><span aria-hidden="true">&times;</span></button>
+	</div>
+	<div class="modal-body">
+		<label id="modal-label-cosign">内容を確認して必要な場合のみ連署してください。</label>
+		<dl id="transfer_info"></dl><!-- テンプレート要素 -->
+	</div>
+	<div class="modal-footer">
+		<button type="button" class="btn btn-primary" data-dismiss="modal" onclick="clickModalCosign()">連署する</button>
+		<button type="button" class="btn btn-default" data-dismiss="modal">キャンセル</button>
+	</div><!-- /.modal-footer -->
+</div></div><!-- /.modal-content --><!-- /.modal-dialog -->
+</div><!-- /.modal -->
+
+<!-- トランザクション実行モーダル -->
+<div class="modal fade" id="modal_transaction" tabindex="-1" role="dialog">
+<div class="modal-dialog" role="document"><div class="modal-content">
+
+	<div class="modal-header">
+		<h5 class="modal-title">トランザクションの署名・通知</h5>
+		<button type="button" class="close" data-dismiss="modal" aria-label="閉じる"><span aria-hidden="true">&times;</span></button>
+	</div>
+	<div class="modal-body">
+		<label id="modal-label-transaction">内容を確認してください。</label>
+		<dl id="transaction_info"></dl><!-- テンプレート要素 -->
+	</div>
+	<div class="modal-footer">
+		<button type="button" class="btn btn-primary" data-dismiss="modal" onclick="clickModalTransaction()">実行</button>
+		<button type="button" class="btn btn-default" data-dismiss="modal">キャンセル</button>
+	</div><!-- /.modal-footer -->
+</div></div><!-- /.modal-content --><!-- /.modal-dialog -->
+</div><!-- /.modal -->
+
+<!-- Group追加モーダル -->
+<div class="modal fade" id="modal_add_group" tabindex="-1" role="dialog">
+<div class="modal-dialog" role="document"><div class="modal-content">
+
+	<div class="modal-header">
+		<h5 class="modal-title">グループ作成</h5>
+		<button type="button" class="close" data-dismiss="modal" aria-label="閉じる"><span aria-hidden="true">&times;</span></button>
+	</div>
+	<div class="modal-body">
+		<label>グループ名</label>
+		<input type="text" id="modal_add_group_field">
+	</div>
+
+	<div class="modal-footer">
+		<button type="button" class="btn btn-primary" data-dismiss="modal" onclick="clickModalAddGroup()">OK</button>
+		<button type="button" class="btn btn-default" data-dismiss="modal">キャンセル</button>
+	</div><!-- /.modal-footer -->
+</div></div><!-- /.modal-content --><!-- /.modal-dialog -->
+</div><!-- /.modal -->
+
+
+<!-- 認証モーダル -->
+<div class="modal fade" id="modal_auth" tabindex="-1" role="dialog">
+<div class="modal-dialog" role="document"><div class="modal-content">
+
+	<div class="modal-header">
+		<h5 class="modal-title">認証</h5>
+		<button type="button" class="close" data-dismiss="modal" aria-label="閉じる"><span aria-hidden="true">&times;</span></button>
+	</div>
+
+	<div class="modal-body">
+		<div>
+			<label>パスワード</label>
+			<input type="password" id="modal_input_login_password">
+		</div>
+	</div>
+
+	<div class="modal-footer">
+		<button type="button" class="btn btn-primary" data-dismiss="modal" onclick="clickModalAuth()">OK</button>
+		<button type="button" class="btn btn-default" data-dismiss="modal">キャンセル</button>
+	</div><!-- /.modal-footer -->
+</div></div><!-- /.modal-content --><!-- /.modal-dialog -->
+</div><!-- /.modal -->
+
+<!-- アカウント選択モーダル -->
+<div class="modal fade" id="modal_account" tabindex="-1" role="dialog">
+<div class="modal-dialog" role="document"><div class="modal-content">
+
+	<div class="modal-header">
+		<h5 class="modal-title">アカウント作成</h5>
+		<button type="button" class="close" data-dismiss="modal" aria-label="閉じる"><span aria-hidden="true">&times;</span></button>
+	</div>
+	<div class="modal-body">
+		<div>
+
+			<label>パスワード設定<br></label>
+			<input type="password" id="modal_input_password">
+			<br>
+			<label>秘密鍵インポート</label>
+			<input type="password" id="modal_input_private_key" maxlength="64">
+			<label>(アカウント新規作成は未入力のまま「作成」クリック)</label>
+		</div>
+	</div>
+
+	<div class="modal-footer">
+		<button type="button" class="btn btn-primary" data-dismiss="modal"  onclick="clickModalAccount()">作成</button>
+		<button type="button" class="btn btn-default" data-dismiss="modal">キャンセル</button>
+	</div><!-- /.modal-footer -->
+</div></div><!-- /.modal-content --><!-- /.modal-dialog -->
+</div><!-- /.modal -->
+
+<!-- 鍵表示モーダル -->
+<div class="modal fade" id="modal_key" tabindex="-1" role="dialog">
+<div class="modal-dialog" role="document"><div class="modal-content">
+	<div class="modal-header">
+		<h5 class="modal-title">鍵情報</h5>
+		<button type="button" class="close" data-dismiss="modal" aria-label="閉じる"><span aria-hidden="true">&times;</span></button>
+	</div>
+	<div class="modal-body">
+	<div>
+		<label>公開鍵</label>
+		<textarea class="form-control keyarea" id="modal_public_key" rows="2"  >ここにテキストを入力</textarea>
+		<label>秘密鍵</label>
+		<textarea class="form-control keyarea" id="modal_private_key" rows="2"  >ここにテキストを入力</textarea>
+	</div>
+	</div>
+	<div class="modal-footer">
+		<button type="button" class="btn btn-default" data-dismiss="modal">閉じる</button>
+	</div><!-- /.modal-footer -->
+</div></div><!-- /.modal-content --><!-- /.modal-dialog -->
+</div><!-- /.modal -->
+
+
+<script type="text/javascript">
+
+//グローバル変数
+let encryptedSignerJSON;			//暗号化済み署名者アカウント
+let signerRawAddress;
+let signerPublicAccount;
+let networkType;
+let nodeUrl;
+let nodeSocket;
+let currencyMosaicId;
+let signedAggregateTx;
+let announcedTxHash;
+let accountNames;
+
+//const privateKey = "0EB15246CF2CE280E7C278B2B6227E287A88B833010DE6C2D7CD2440FCF79063";//bob
+//const address = "TAB7VHVFYITJQDLU5H7HP2W7N7Q4JMNV73CDNBY";//bob
+
+//let privateKey = "EF4706C9BA9ADD8E980EB73F407B5A4988B4218D74ED9C09529383145E35DFE1";//ivan1
+//let address = "TAK7CN3V4MYH5S3LRHBXPFNLAU6IN5RBINKBIKY";//ivan1
+
+let transactionList = new Array();
+let currentValueMinApproval = 0;
+let currentValueMinRemoval = 0;
+let cosignatureRequieredTxes;
+let accountMosaics;
+let accountAddresses;
+//QRスキャンモード
+let scanMode="";
+let authMode="login";
+
+const jsondata2 = [
+	{ id: 'generalgroup', parent: '#', icon: 'jstree-folder', text: '一般', state: {'opened': true}},
+	{ id: 'eventgroup', parent: '#', icon: 'jstree-folder', text: 'イベント', state: {'opened': true}},
+//	{ id: 'tomatinagroup', parent: 'eventgroup', icon: 'jstree-folder', text: '🍅Symbolトマティーナ', state: {'opened': true}},
+];
+
+/* デバッグ用
+var jsondata2 = [
+	{ id: 'safegroup', parent: '#', icon: 'jstree-folder', text: 'safe list', state: {'opened': true}},
+	{ id: 'group1', parent: 'safegroup', icon: 'jstree-folder', text: 'community1', state: {'opened': true}},
+	{ id: '9891967FD57D7A2D660163A24617E8A2991CE66F936BEBFB', parent: 'group1', icon: 'jstree-file', text: 'Ivan2', state: {'opened': true}},
+	{ id: '982F38FF42FFD1A1ADBE1D19C0E5F85E47CE368FF373BC40', parent: 'group1', icon: 'jstree-file', text: 'Ivan3', state: {'opened': true}},
+	{ id: 'group2', parent: 'safe', icon: 'jstree-folder', text: 'community2', state: {'opened': true}},
+	{ id: '98D339A1AFD3D08CF71E944A7D1E6100766F0DE76B02316E', parent: 'group2', icon: 'jstree-file', text: 'Carol', state: {'opened': true}},
+	{ id: 'eventgroup', parent: '#', icon: 'jstree-folder', text: 'event', state: {'opened': true}},
+	{ id: 'ellen', parent: 'eventgroup', icon: 'jstree-file', text: 'Ellen', state: {'opened': true}},
+	{ id: 'frank', parent: 'eventgroup', icon: 'jstree-file', text: 'Frank', state: {'opened': true}},
+
+	{ id: 'ivan', parent: 'dave', icon: 'jstree-file', text: 'Ivan', state: {'opened': true}},
+];
+*/
+
+const sym = require("/node_modules/symbol-sdk");
+const qr  = require("/node_modules/symbol-qr-library");
+const Buffer = require("/node_modules/buffer").Buffer;
+
+//アプリケーション開始
+startSymbolApplication(
+
+	configSymbolApplication,
+	//初期設定完了後 ready
+	async function(node){
+
+		$.toast({heading: 'Information',text: 'ネットワーク接続：Symbol',showHideTransition: 'plain',icon: 'info',});
+
+		//ディープリンク
+		const params = new URLSearchParams(document.location.search.substring(1));
+		const reset = params.get("reset");
+
+		//グローバル変数
+		nodeUrl = node.url;
+		nodeSocket = node.socket;
+		networkType = sym.NetworkType[configSymbolApplication[node.network.identifier]];
+		generationHash = node.network.generationHashSeed;
+		epochAdjustment = node.network.epochAdjustment.slice(0,-1);
+		currencyMosaicId = node.network.currencyMosaicId.split("'").join("").slice(2);
+
+		socketSend(nodeSocket,'block');
+
+		if(localStorage.getItem('dodid') == null|| reset === "true"){
+			$("#modal_account").modal("show");
+		}else{
+			$("#modal_auth").modal("show");
+		}
+	},//ready
+
+	//ソケット受信時
+	async function(event){
+
+		if(event.topic.includes("unconfirmedAdded/")){
+			txType = event.data.transaction.type;
+			if(txType === 16712){ // ハッシュロック
+
+				$.toast({heading: 'Information',text: 'トランザクションロック準備中',showHideTransition: 'plain',icon: 'info',});
+			}
+
+		}else if(event.topic.includes("confirmedAdded/"  )){
+
+			txType = event.data.transaction.type;
+			if(txType === 16712){
+
+				nodeFetch(nodeUrl + "/transactions/partial","PUT",{"payload": signedAggregateTx.payload});
+				announcedTxHash = signedAggregateTx.hash;
+				$.toast({heading: 'Information',text: 'トランザクション通知',showHideTransition: 'plain',icon: 'info',});
+				console.log(signedAggregateTx);
+				clog(nodeUrl,signedAggregateTx);
+			}
+
+			if(event.data.meta.hash === announcedTxHash){
+				$('#transaction_tree').jstree(true).delete_node($('#transaction_tree').jstree(true));
+
+				$('#transaction_tree').jstree('delete_all');
+				$('#transaction_tree').jstree('refresh');
+				transactionList = new Array();
+				$.toast({heading: 'Success'    ,text: 'トランザクション承認',showHideTransition: 'plain',icon: 'success'});
+				document.querySelectorAll("span.close-jq-toast-single").forEach(
+					span=> {
+						if(span.parentElement.textContent.includes("連署")){
+							span.click();
+						}
+					}
+				);
+			}
+
+		}else if(event.topic.includes("partialAdded/"	 )){
+			await checkPartialTransaction();
+			$.toast({heading: 'Information',text: '連署処理中...',showHideTransition: 'plain',icon: 'info',hideAfter:false});
+
+		}else if(event.topic.includes("status/" 		 )){$.toast({heading: 'Error'	   ,text: event.data.code,				showHideTransition: 'plain',hideAfter: false,icon: 'error'});
+		}
+	},
+
+	//QR受信時:onPhysicalMessage
+	async function(event){
+
+		console.log(event);
+		if(scanMode === "add_address"){             scanAddAddress(event.data.address.address);
+		}else if(scanMode === "add_multisig"){await scanAddMultisig(event.data.address.address);
+		}else if(scanMode === "del_multisig"){await scanDelMultisig(event.data.address.address);
+		}
+		$('#modal_qr_scan').modal('hide');
+	},
+
+	//ソケット再起動時
+	function(ws){
+
+		nodeSocket = ws;
+		socketSend(nodeSocket,'block');
+		socketSend(nodeSocket,'status/'   + signerRawAddress);
+		socketSend(nodeSocket,'confirmedAdded/'   + signerRawAddress);
+		socketSend(nodeSocket,'unconfirmedAdded/' + signerRawAddress);
+		$.toast({heading: 'Warning',text: 'Socket Resumed',showHideTransition: 'plain',icon: 'warning'});
+	},
+
+	//ノード再選択時
+	function(event){
+
+		if(event.name == "retry"){	$.toast({heading: 'Warning',text: 'ノード再接続',	showHideTransition: 'plain',icon: 'warning'	});
+		}else{
+			if(event.data){
+				$.toast({heading: 'Error',	text: 'Connection Failed',		showHideTransition: 'fade',	icon: 'error'	});
+				console.log(event.data);
+
+			}else{
+				$.toast({heading: event.name,	text: event.message,		showHideTransition: 'fade',	icon: 'error'	});
+			}
+		}
+	}
+);
+
+//アプリケーション起動時コールバック終了
+////////////////////////////////////////////////////////////////////////////////////////////
+// 以下関数群
+
+async function clickModalAccount(){
+
+	const pw = document.getElementById('modal_input_password');
+	const pk  = document.getElementById('modal_input_private_key');
+
+	let signerAccount;
+	if(pk.value == ''){
+		signerAccount = sym.Account.generateNewAccount(networkType);
+	}else{
+		signerAccount = sym.Account.createFromPrivateKey(pk.value,networkType);
+
+	}
+	signerPublicAccount = signerAccount.publicAccount;
+	const signerQR = qr.QRCodeGenerator.createExportAccount(signerAccount.privateKey, networkType, null,pw.value); //passには認証したアカウントから
+
+	encryptedSignerJSON = signerQR.toJSON();
+
+	if(localStorage.getItem('dodid')){
+		if(window.confirm("保存している鍵情報を更新しますか？")){
+			localStorage.setItem('dodid',encryptedSignerJSON);
+		}else{
+			alert("インポート（新規作成）した鍵を保存せずにツールを使用します。ブラウザを閉じると消去されます。");
+		}
+	}
+	delete signerAccount;
+	delete signerQR;
+	delete pw;
+	delete pk;
+
+	await settingSignerAccount(signerPublicAccount);
+}
+
+async function clickModalAuth(){
+
+	const pw = document.getElementById('modal_input_login_password');
+	const signerQR = qr.AccountQR.fromJSON(localStorage.getItem('dodid'),pw.value);
+	const signerAccount = sym.Account.createFromPrivateKey(signerQR.accountPrivateKey,networkType);
+	signerPublicAccount = signerAccount.publicAccount;
+
+	delete pw;
+	delete signerQR;
+
+	if(authMode === "transaction"){
+
+		const aggregateTx = sym.AggregateTransaction.createBonded(
+			sym.Deadline.create(epochAdjustment),
+			transactionList,
+			networkType,
+			[],
+			sym.UInt64.fromUint(100000)
+		);
+		//.setMaxFeeForAggregate(100, 4);
+
+		signedAggregateTx = signerAccount.sign(aggregateTx, generationHash);
+		const hashLockTx = sym.HashLockTransaction.create(
+			sym.Deadline.create(epochAdjustment),
+			new sym.Mosaic(new sym.MosaicId(currencyMosaicId), sym.UInt64.fromUint(10000000)),
+			sym.UInt64.fromUint(480), // 120 (1h) x 4
+			signedAggregateTx,
+			networkType,
+		).setMaxFee(100);
+
+		const signedLockTx = signerAccount.sign(hashLockTx, generationHash);
+		nodeFetch(nodeUrl + "/transactions","PUT",{"payload": signedLockTx.payload});
+		clog(nodeUrl,signedLockTx);
+
+	}else if(authMode === "cosign"){
+
+		//連署
+		announcedTxHash = cosignatureRequieredTxes[0].meta.hash;
+		const cosignedTx = sym.CosignatureTransaction.signTransactionHash(signerAccount,announcedTxHash)
+		const payload = {
+			parentHash:announcedTxHash,
+			signature:cosignedTx.signature,
+			signerPublicKey:signerAccount.publicKey,
+			version:"0"
+		}
+		nodeFetch(nodeUrl + "/transactions/cosignature","PUT", payload);
+
+		$("#transfer_info").empty();
+		document.querySelectorAll("span.close-jq-toast-single").forEach(
+			span=> {
+				if(span.parentElement.textContent.includes("確認")){
+					span.click();
+				}
+			}
+		);
+	}else if(authMode === "key"){
+		document.getElementById("modal_public_key").textContent = signerAccount.publicKey;
+		document.getElementById("modal_private_key").textContent = signerAccount.privateKey;
+
+		$("#modal_key").modal("show");
+	}else{
+
+		await settingSignerAccount(signerPublicAccount);
+	}
+	delete signerAccount;
+
+}
+
+async function settingSignerAccount(publicAccount){
+
+	const signerAddress       = document.getElementById('signer_address');
+	const signerAddressPlain  = document.getElementById('signer_address_plain');
+
+	signerRawAddress = publicAccount.address.plain();
+	const addressQR = new qr.AddressQR("",publicAccount.address);
+	addressQR.toBase64().subscribe(x => {
+		(tag= document.createElement('img')).src = x;
+		signerAddress.appendChild(tag);
+	});
+
+	signerAddressPlain.textContent = publicAccount.address.plain();
+
+	socketSend(nodeSocket,'status/'   + signerRawAddress);
+	socketSend(nodeSocket,'confirmedAdded/'   + signerRawAddress);
+	socketSend(nodeSocket,'unconfirmedAdded/' + signerRawAddress);
+	socketSend(nodeSocket,'partialAdded/' + signerRawAddress);
+
+	const loadAddressNodes = JSON.parse(localStorage.getItem('dodid:address_tree'));
+	let addressNodes = jsondata2;
+	if(loadAddressNodes){
+		addressNodes = jsondata2.concat(loadAddressNodes);
+	}
+	$('#address_tree'    ).jstree({'core': {'data': addressNodes,"check_callback" : true,"multiple" : false}});
+	$('#transaction_tree').jstree({'core': {"check_callback" : true}});
+
+	try{
+
+		const multisigGraph = await getAccountInfoByNodeFetch(signerRawAddress,"/multisig/graph");
+		accountNames = await nodeFetchAccountNames(multisigGraph.map(t=>t.multisigEntries).flat().map(fm=>sym.Address.createFromEncoded(fm.multisig.accountAddress).plain()));
+
+		console.log(multisigGraph);
+		$('#multisig_tree').jstree({
+			'core': {
+				'data': await buildTree(multisigGraph,accountNames)
+			}
+		})
+
+		accountAddresses = multisigGraph
+		.filter(item => item.level < 0) // levelが0未満の要素をフィルタリング
+		.map(item => item.multisigEntries).flat()
+		.map(x=>sym.Address.createFromEncoded(x.multisig.accountAddress).plain());
+
+		const cannotSignSelf = multisigGraph
+			.filter(item => item.level == 0)
+			.map(m=>m.multisigEntries).flat()
+			.some(s=>s.multisig.cosignatoryAddresses.length > 0);
+		if(cannotSignSelf){
+			alert("このアカウントは操作できません");
+		}
+
+	}catch(err){
+
+		const address = sym.Address.createFromRawAddress(signerRawAddress);
+		accountAddresses = [address.plain()];
+		accountNames = await nodeFetchAccountNames(accountAddresses);
+
+		const child = new Object();
+		const accountName = accountNames.find(an=>sym.Address.createFromEncoded( an.address).plain() === address.plain());
+
+		if(accountName !== undefined && accountName.names.length > 0){
+			child.text = accountName.names[0];
+		}else{
+			child.text = address.pretty().slice( 0, 20 ) + "..." +  address.pretty().slice( -3 );
+		}
+		child.id = address.encoded();
+		child.parent = "#" ;
+		child.state = {'opened':true};
+		child.icon = 'jstree-file';
+
+		$('#multisig_tree').jstree({
+			'core': {
+				'data': [child]
+			}
+		})
+	}
+
+	const unresolvedAddresses = accountNames.map(f=>f.names).flat().map(m=>{
+		const encAddress = (networkType + 1).toString(16) 
+			+ Buffer.from(new BigInt64Array([BigInt(new sym.NamespaceId(m).id)]).buffer).toString("hex").toUpperCase() 
+			+ "000000000000000000000000000000";
+		return sym.Address.createFromEncoded(encAddress).plain();
+	})
+
+	accountAddresses = accountAddresses.concat(unresolvedAddresses);
+	for(targetAddress of accountAddresses){
+		socketSend(nodeSocket,'partialAdded/' + targetAddress);
+	}
+
+	await checkPartialTransaction();
+}
+
+///onPhysicalMessage ここから///
+function scanAddAddress(rawAddress){
+
+	try{
+		const address = sym.Address.createFromRawAddress(rawAddress);
+		const addAddress = address.encoded();
+		const prettyAddress = address.pretty();
+		const nodeText = prettyAddress.slice( 0, 20 ) + "..." +  prettyAddress.slice( -3 );
+
+		if( $('#address_tree').jstree(true).get_node(addAddress)){
+			alert("そのアカウントはすでに登録済みです。");
+			return;
+		}
+
+		const node = { id: addAddress, address:addAddress ,icon: 'jstree-file', text: nodeText, state: {'opened': true}};
+		const selectedParent = $('#address_tree').jstree('get_selected')[0];
+
+		$('#address_tree').jstree(true).create_node( selectedParent, node);
+		localStorage.setItem('dodid:address_tree',
+			JSON.stringify($('#address_tree').jstree(true).get_json('generalgroup', {flat:true}).filter(j=>j.id !== 'generalgroup'))
+		);
+	}catch{
+		alert("QRコードのデータを認識できませんでした。");
+	}
+}
+
+async function scanAddMultisig(rawAddress){
+
+	//連署者にしたいアカウント
+	const targetCosginerAddress = sym.Address.createFromRawAddress(rawAddress);
+	await addMultisigByUnresolved(targetCosginerAddress);
+}
+
+
+async function scanDelMultisig(rawAddress){
+
+	const targetCosginerAddress = sym.Address.createFromRawAddress(rawAddress);
+	await delMultisigByUnresolved(targetCosginerAddress);
+}
+///onPhysicalMessage ここまで///
+
+//QRコードではなくてネームスペースで読み込み
+async function clickModalQrScan(){
+
+	const namespace = document.getElementById("modal_qr_scan_namespace").value ;
+	const namespaceId = new sym.NamespaceId(namespace);
+
+	if(scanMode === "add_address"){
+
+		try{
+			const namespaceInfo = await nodeFetchNamespaces(namespaceId.toHex());
+			if( $('#address_tree').jstree(true).get_node("ns:" + namespace)){
+				alert("そのアカウントはすでに登録済みです。");
+				return;
+			}
+
+		}catch(err){
+			alert("指定のネームスペースは存在しません。");
+			return;
+		}
+
+		const node = { id: "ns:" + namespace ,icon: 'jstree-file', text: namespace, state: {'opened': true}};
+		const selectedParent = $('#address_tree').jstree('get_selected')[0];
+		$('#address_tree').jstree(true).create_node( selectedParent, node);
+		localStorage.setItem('dodid:address_tree',
+			JSON.stringify($('#address_tree').jstree(true).get_json('generalgroup', {flat:true}).filter(j=>j.id !== 'generalgroup'))
+		);
+	}else if(scanMode === "add_multisig"){ 
+
+		try{
+			const namespaceInfo = await nodeFetchNamespaces(namespaceId.toHex());
+			if( $('#multisig_tree').jstree(true).get_node("ns:" + namespace)){
+				alert("そのアカウントはすでに登録済みです。");
+				return;
+			}
+
+		}catch(err){
+			alert("指定のネームスペースは存在しません。");
+			return;
+		}
+
+		//連署者にしたいアカウント
+		const targetNamespaceId = namespaceId;
+		await addMultisigByUnresolved(targetNamespaceId);
+
+	}else if(scanMode === "del_multisig"){ 
+
+		try{
+			const namespaceInfo = await nodeFetchNamespaces(namespaceId.toHex());
+			if( $('#multisig_tree').jstree(true).get_node("ns:" + namespace)){
+				alert("そのアカウントはすでに登録済みです。");
+				return;
+			}
+
+		}catch(err){
+			alert("指定のネームスペースは存在しません。");
+			return;
+		}
+
+		const targetNamespaceId = namespaceId;
+		await delMultisigByUnresolved(targetNamespaceId);
+	}
+	$("#modal_qr_scan").modal("hide");
+}
+
+async function addMultisigByUnresolved(unresolvedAddress){
+
+	//マルチシグにしたいアカウント
+	const selectedPublicAccount = await nodeFetchSelectedPublicAccount();
+
+	let multisig;
+	try{
+		const info = await getSelectedAccountInfoByNodeFetch("/multisig");
+		multisig = info.multisig;
+	}catch(err){
+	}
+
+	let multisigTx = transactionList.find(tx => tx.signer.publicKey  === selectedPublicAccount.publicKey && tx.type === 16725);
+	if(multisigTx !== undefined){
+		multisigTx.addressAdditions.push(unresolvedAddress);
+		console.log(multisigTx);
+		alert("既存のtransaction listを更新しました。");
+
+	}else{
+
+		let minApproval = 1;
+		let minRemoval = 1;
+		if(multisig && multisig.cosignatoryAddresses.length > 0){
+			minApproval = 0;
+			minRemoval = 0;
+		}
+
+		multisigTx = sym.MultisigAccountModificationTransaction.create(
+			sym.Deadline.create(epochAdjustment), 
+			minApproval, //承認のために必要な最小署名者数増分
+			minRemoval, //除名のために必要な最小署名者数増分
+			[unresolvedAddress], //追加対象アドレス
+			[],//除名対象アドレス
+			networkType
+		);
+
+		transactionList = transactionList.concat(multisigTx.toAggregate(selectedPublicAccount));
+	}
+	refreshTransactionList();
+}
+
+async function delMultisigByUnresolved(unresolvedAddress){
+
+	const selectedPublicAccount = await nodeFetchSelectedPublicAccount();
+
+	let multisig;
+	try{
+		const info = await getSelectedAccountInfoByNodeFetch("/multisig");
+		multisig = info.multisig;
+	}catch(err){
+	}
+
+	let multisigTx = transactionList.find(tx => tx.signer.publicKey  === selectedPublicAccount.publicKey && tx.type === 16725);
+
+	if(multisigTx !== undefined){
+		multisigTx.addressDeletions.push(unresolvedAddress);
+		console.log(multisigTx);
+		alert("既存のtransaction listを更新しました。");
+
+	}else{
+		if(multisig && multisig.cosignatoryAddresses.length > 0){
+			multisigTx = sym.MultisigAccountModificationTransaction.create(
+				sym.Deadline.create(epochAdjustment), 
+				-1, //承認のために必要な最小署名者数増分
+				-1, //除名のために必要な最小署名者数増分
+				[], //追加対象アドレス
+				[unresolvedAddress],//除名対象アドレス
+				networkType
+			);
+			
+			transactionList = transactionList.concat(multisigTx.toAggregate(selectedPublicAccount));
+		}else{
+			alert("マルチシグ連署者が存在しません");
+		}
+	}
+	refreshTransactionList();
+
+}
+
+//// 転送トランザクション ////
+async function createTransferForm(){
+
+	const selectedAccountInfo = await nodeFetchSelectedAccountInfo();
+
+	const mosaics  = await getMosaicsInfoByNodeFetch({ "mosaicIds": selectedAccountInfo.account.mosaics.map(m => m.id)});
+	const mosaicNames = await nodeFetchMosaicNames(mosaics.map(m => m.mosaic.id));
+	accountMosaics = mosaics.map(m=>{
+		return {
+			name:mosaicNames.find(mn=>mn.mosaicId == m.mosaic.id).names[0],
+			id:m.mosaic.id,
+			amount:dispAmount(
+				selectedAccountInfo.account.mosaics.find(am=>am.id === m.mosaic.id).amount,
+				m.mosaic.divisibility
+			)
+		}
+	});
+	addMosaicForm();//一つ目のモザイク
+}
+
+function clickModalAddMosaicForm(){
+	addMosaicForm()
+}
+
+function addMosaicForm() {
+
+	const formContainer = document.getElementById("form-container");
+	const formTemplate  = document.getElementById("form_template");
+	const newForm = formTemplate.content.cloneNode(true);
+
+	// 削除ボタンにイベントリスナーを追加
+	newForm.querySelector(".remove-button").addEventListener("click", function() {
+		const formToRemove = this.parentElement;
+		formContainer.removeChild(formToRemove);
+	});
+
+	const selectElement = newForm.querySelector("select");
+	while (selectElement.firstChild) {
+		selectElement.removeChild(selectElement.firstChild);
+	}
+
+	// 選択肢を動的に生成してセレクトボックスに追加する
+	accountMosaics.forEach((accountMosaic) => {
+		const optionElement = document.createElement("option");
+		optionElement.value = accountMosaic.id;
+
+		if(accountMosaic.name !== undefined){
+			
+			optionElement.textContent = accountMosaic.name + "(" + accountMosaic.amount + ")";
+		}else{
+			optionElement.textContent = accountMosaic.id + "(" + accountMosaic.amount + ")";
+		}
+
+		selectElement.appendChild(optionElement);
+	});
+
+	formContainer.appendChild(newForm); // 新しいフォームを追加
+}
+
+function clickModalAddGroup(){
+
+	const parent = $('#address_tree').jstree('get_selected')[0];
+	const tree = $('#address_tree').jstree(true).get_json('#', {flat:true});
+	const addGroupField = document.getElementById("modal_add_group_field").value;
+	const parentArray = tree.filter(t=>t.parent === parent);
+	const parentCount = parentArray.length + 1;
+	const node = { id: parent + "_" + parentCount,  icon: 'jstree-folder', text: addGroupField, state: {'opened': true}};
+
+	$('#address_tree').jstree(true).create_node( parent, node);
+	$('#modal_add_group').modal('hide');
+	document.getElementById("modal_add_group_field").value = "";
+
+	localStorage.setItem('dodid:address_tree',
+		JSON.stringify($('#address_tree').jstree(true).get_json('generalgroup', {flat:true}).filter(j=>j.id !== 'generalgroup'))
+	);
+}
+
+async function checkPartialTransaction(){
+
+	const partialAggTxes = await Promise.all(
+		accountAddresses.map(
+			address => nodeFetch(nodeUrl + "/transactions/partial?address=" + address)
+		)
+	);
+
+	const partialHashes = Array.from(new Set(
+		partialAggTxes.map(x => JSON.parse(x).data).flat()
+		.map(x=>x.meta.hash)
+	));
+
+	if(partialHashes.length > 0){
+		const partialTxes = await nodeFetch(nodeUrl + "/transactions/partial", 'POST', {"transactionIds": partialHashes});
+
+		//起案者でなく、署名済みでもないトランザクションのみ抽出。
+		const publicKey = signerPublicAccount.publicKey;
+		cosignatureRequieredTxes = JSON.parse(partialTxes)
+		.filter(x => x.transaction.signerPublicKey !== publicKey)
+		.filter(x => !x.transaction.cosignatures.map(c=>c.signerPublicKey).includes(publicKey));
+
+		if(cosignatureRequieredTxes.length > 0){
+			$.toast({
+				heading: 'Information',
+				text: '連署待ちトランザクション <a href="javascript:void(0)" onclick="showCosignModal()">確認</a>',
+				showHideTransition: 'plain',
+				icon: 'info',
+				hideAfter:false
+			});
+			console.log(cosignatureRequieredTxes);
+		}
+
+		//パーシャルトランザクションの1つを抜粋で表示
+		//改善の余地あり TODO
+		const targetRawAddress = JSON.parse(partialTxes)[0].transaction.transactions.map(tf=> sym.Address.createFromPublicKey(tf.transaction.signerPublicKey,networkType).plain())[0];
+		const signer = sym.PublicAccount.createFromPublicKey(JSON.parse(partialTxes)[0].transaction.signerPublicKey,networkType).address.encoded();
+		const signedCosigners = JSON.parse(partialTxes)[0].transaction.cosignatures.map(c=>sym.PublicAccount.createFromPublicKey(c.signerPublicKey,networkType).address.plain())
+
+		let multisigGraph;
+		try{
+			multisigGraph = await getAccountInfoByNodeFetch(targetRawAddress,"/multisig/graph");
+			console.log(multisigGraph);
+			accountNames = await nodeFetchAccountNames(multisigGraph.map(t=>t.multisigEntries).flat().map(fm=>sym.Address.createFromEncoded(fm.multisig.accountAddress).plain()));
+
+			$('#partial_transaction_tree').jstree({
+				'core': {
+					'data': await buildTree(multisigGraph,accountNames,signer,signedCosigners)
+				}
+			})
+		}catch(err){
+
+			//マルチシグをまだ構成していないアカウントはこちらへ逃がす
+			//未実装 TODO
+		}
+	}
+}
+
+async function refreshTransactionList(){
+
+	$('#transaction_tree').jstree(true).refresh();
+	for(let tx of transactionList){
+
+		const id = tx.deadline.toString();
+		createFolder("#transaction_tree",id,sym.TransactionType[tx.type],"#");
+
+		if(tx.type === 16725){
+
+			const signerAddress = tx.signer.address;
+			const accountName = accountNames.find(an=>an.address === signerAddress.encoded());
+			let signerAddressText; 
+			if(accountName !== undefined && accountName.names.length > 0){
+				signerAddressText = accountName.names[0];
+			}else{
+				signerAddressText = signerAddress.pretty().slice( 0, 20 ) + "..." +  signerAddress.pretty().slice( -3 );
+			}
+
+			createFile('#transaction_tree',id + "signer"          ,"対象者：" + signerAddressText,id);
+			createFile('#transaction_tree',id + "minApprovalDelta","minApprovalDelta：" + tx.minApprovalDelta,id);
+			createFile('#transaction_tree',id + "minRemovalDelta" ,"minRemovalDelta：" + tx.minRemovalDelta,id);
+			createFolder("#transaction_tree",id + "addressAdditions","addressAdditions",id);
+
+			for(var address of tx.addressAdditions){
+
+				let nodeText;
+				if(address.constructor.name === "NamespaceId"){
+
+					nodeText = address.fullName;
+
+				}else{
+					const prettyAddress = address.pretty();
+					nodeText = prettyAddress.slice( 0, 20 ) + "..." +  prettyAddress.slice( -3 );
+				}
+				createFile("#transaction_tree",id + address.plain() + "addressAdditions" ,nodeText,id + "addressAdditions");
+			}
+
+			createFolder("#transaction_tree",id + "addressDeletions","addressDeletions",id);
+			for(var address of tx.addressDeletions){
+
+				let nodeText;
+				if(address.constructor.name === "NamespaceId"){
+
+					nodeText = address.fullName;
+
+				}else{
+					const prettyAddress = address.pretty();
+					nodeText = prettyAddress.slice( 0, 20 ) + "..." +  prettyAddress.slice( -3 );
+				}
+				createFile('#transaction_tree',id + address.plain() + "addressDeletions" ,nodeText,id + "addressDeletions");
+			}
+		}else if(tx.type === 16724){
+
+			const signerAddress = tx.signer.address;
+			const accountName = accountNames.find(an=>an.address === signerAddress.encoded());
+			let signerAddressText;
+			if(accountName !== undefined && accountName.names.length > 0){
+				signerAddressText = accountName.names[0];
+			}else{
+				signerAddressText = signerAddress.pretty().slice( 0, 20 ) + "..." +  signerAddress.pretty().slice( -3 );
+			}
+
+			let nodeText;
+			if(tx.recipientAddress.constructor.name === "NamespaceId"){
+
+				nodeText = tx.recipientAddress.fullName;
+
+			}else{
+				const prettyAddress = tx.recipientAddress.pretty();
+				nodeText = prettyAddress.slice( 0, 20 ) + "..." +  prettyAddress.slice( -3 );
+			}
+
+			createFile('#transaction_tree',id + "signer"          ,"送信者：" + signerAddressText,id);
+			createFile('#transaction_tree',id + "recipientAddress","受信者：" + nodeText,id);
+			createFolder("#transaction_tree",id + "mosaics","mosaics",id);
+
+			const mosaics = await getMosaicsInfoByNodeFetch({ "mosaicIds": tx.mosaics.map(m=>m.id.toHex())});
+			const mosaicNames = await nodeFetchMosaicNames(mosaics.map(m => m.mosaic.id));
+			const innerMosaics = tx.mosaics.map(m=>{
+				return {
+					name:mosaicNames.find(mn=>mn.mosaicId == m.id.toHex()).names[0],
+					id:m.id.toHex(),
+					amount:dispAmount(
+						m.amount.compact(),
+						mosaics.find(mf=>mf.mosaic.id === m.id.toHex()).mosaic.divisibility,
+					)
+				}
+			});
+
+			for(var mosaic of innerMosaics){
+
+				let mosaicName;
+				if(mosaic.name){
+					mosaicName = mosaic.name;
+				}else{
+					mosaicName = mosaic.id;
+				}
+				createFile('#transaction_tree',id+"mosaics"+ mosaic.id,mosaicName + ":" + mosaic.amount,id + "mosaics");
+			}
+		}
+	}
+}
+
+////BUILDING TRANSACTION///////////////////////////////////////////
+
+async function clickModalTransfer() {
+
+	const selectedPublicAccount = await nodeFetchSelectedPublicAccount();
+
+	const formData = [];
+	const formElements = document.getElementsByClassName("form_mosaic");
+	for (const form of formElements) {
+		const mosaicId = form.querySelector("select").value;
+		const mosaicInfo = await getMosaicsInfoByNodeFetch({ "mosaicIds": [mosaicId]});
+		const amount = Number(form.querySelector("input[type='text']").value) * Math.pow(10,mosaicInfo[0].mosaic.divisibility);
+		formData.push({ mosaicId: mosaicId, amount: amount });
+	}
+
+	const message = document.getElementById("message").value;
+	const mosaicList = formData.map(f=>new sym.Mosaic(new sym.MosaicId(f.mosaicId),sym.UInt64.fromUint(f.amount)));
+	const selectedAry = $('#address_tree').jstree(true).get_json($('#address_tree').jstree("get_selected"), {flat:true});
+	const selectedTarget = selectedAry.filter(sa => !(sa.id.includes("group") || sa.id === "#")).map(sa=>sa.id);
+
+	const txes = new Array();
+	for(encAddress of selectedTarget){
+
+		let recipient;
+		if(encAddress.includes("ns:")){
+			recipient = new sym.NamespaceId(encAddress.split(":")[1]);
+		}else{
+			recipient = sym.Address.createFromEncoded(encAddress);
+		}
+		
+		let tx = sym.TransferTransaction.create(
+			sym.Deadline.create(epochAdjustment),
+			recipient, 
+			mosaicList,
+			sym.PlainMessage.create(message),
+			networkType
+		);
+		txes.push(tx.toAggregate(selectedPublicAccount));
+	}
+	console.log(txes);
+	transactionList = transactionList.concat(txes);
+
+	refreshTransactionList();
+	$('#modal_transfer').modal('hide'); //必要
+}
+
+async function clickModalModMultisig() {
+
+	const selectedPublicAccount = await nodeFetchSelectedPublicAccount();
+	const multisig = await getSelectedAccountInfoByNodeFetch("/multisig");
+
+	let multisigTx = transactionList.find(tx => tx.signer.publicKey  === selectedPublicAccount.publicKey && tx.type === 16725);
+	if(multisigTx !== undefined){
+
+		multisigTx.minApprovalDelta = currentValueMinApproval - multisig.multisig.minApproval;
+		multisigTx.minRemovalDelta = currentValueMinRemoval - multisig.multisig.minRemoval;
+		console.log(multisigTx);
+		alert("既存のtransaction listを更新しました。");
+
+	}else{
+
+		multisigTx = sym.MultisigAccountModificationTransaction.create(
+			sym.Deadline.create(epochAdjustment), 
+			currentValueMinApproval - multisig.multisig.minApproval, //承認のために必要な最小署名者数増分
+			currentValueMinRemoval - multisig.multisig.minRemoval, //除名のために必要な最小署名者数増分
+			[], //追加対象アドレス
+			[],//除名対象アドレス
+			networkType
+		);
+		
+		transactionList = transactionList.concat(multisigTx.toAggregate(selectedPublicAccount));
+	}
+	refreshTransactionList();
+}
+
+////DISPLAY TRANSACTION///////////////////////////////////////////
+
+async function clickTransaction(){
+
+	let ddTx = "";
+	for(const innerTx of transactionList){
+		ddTx += await getTxInfo(innerTx);
+	}
+
+	$("#transaction_info").append(ddTx);
+	$("#modal_transaction").modal("show");
+}
+
+async function showCosignModal(){
+
+	let dtTx = "";
+	let ddTx = "";
+	for(const aggTx of cosignatureRequieredTxes){
+
+		const tx = sym.TransactionMapping.createFromDTO(aggTx);
+		const signerAddress = sym.Address.createFromPublicKey(tx.signer.publicKey,networkType);
+
+		dtTx = "<dt>" + sym.TransactionType[tx.type] + "</dt>";
+		ddTx = "<dd>起案者:" + signerAddress.plain() + "</dd>";
+
+		if(tx.type === 16961){
+
+			for(const innerTx of tx.innerTransactions){
+				ddTx += await getTxInfo(innerTx);
+			}
+		}
+	}
+
+	$("#transfer_info").append(dtTx + ddTx);
+	$('#modal_cosign').modal('show');
+}
+
+async function getTxInfo(innerTx){
+
+	const senderAddress = sym.Address.createFromPublicKey(innerTx.signer.publicKey,networkType);
+	const accountName = accountNames.find(an=>an.address === senderAddress.encoded());
+
+	let ddTx;
+	switch (sym.TransactionType[innerTx.type]) {
+	case "TRANSFER":
+
+		ddTx = "<dt>" + sym.TransactionType[innerTx.type] + "</dt>";
+
+		if(accountName !== undefined && accountName.names.length > 0){
+			ddTx += "<dd>送信者→:" + accountName.names[0]  + "</dd>";
+
+		}else{
+			ddTx += "<dd>送信者→:" + senderAddress.pretty().slice(0,20) + "..." + senderAddress.pretty().slice(-3)  + "</dd>";
+		}
+
+		if(innerTx.recipientAddress.constructor.name === "NamespaceId"){
+			const namespaceInfo = await nodeFetchNamespaces(innerTx.recipientAddress.toHex());
+			const accountNamespace = await nodeFetchAccountNames(sym.Address.createFromEncoded(namespaceInfo.alias.address).plain());
+
+			ddTx += "<dd>→受信者:" + accountNamespace[0].names[0]  + "</dd>";
+		}else{
+			const prettyAddress = innerTx.recipientAddress.pretty();
+			ddTx += "<dd>→受信者:" + prettyAddress.slice(0,20) + "..." + prettyAddress.slice(-3)  + "</dd>";
+		}
+
+		const mosaics = await getMosaicsInfoByNodeFetch({ "mosaicIds": innerTx.mosaics.map(m=>m.id.toHex())});
+		const mosaicNames = await nodeFetchMosaicNames(mosaics.map(m => m.mosaic.id));
+		const innerMosaics = innerTx.mosaics.map(m=>{
+			return {
+				name:mosaicNames.find(mn=>mn.mosaicId == m.id.toHex()).names[0],
+				id:m.id,
+				amount:dispAmount(
+					m.amount,
+					mosaics.find(mf=>mf.mosaic.id === m.id.toHex()).mosaic.divisibility,
+				)
+			}
+		});
+
+		for(var mosaic of innerMosaics){
+
+			if(mosaic.name){
+				ddTx += "<dd>　[" + mosaic.name + ":" + mosaic.amount + "]</dd>";
+
+			}else{
+				ddTx += "<dd>　[" + mosaic.id.toHex() + ":" + mosaic.amount + "]</dd>";
+			}
+		}
+	break;
+	case "MULTISIG_ACCOUNT_MODIFICATION":
+
+		ddTx = "<dt>" + sym.TransactionType[innerTx.type] + "</dt>";
+
+		if(accountName !== undefined && accountName.names.length > 0){
+			ddTx += "<dd>対象者:" + accountName.names[0]  + "</dd>";
+
+		}else{
+			ddTx += "<dd>対象者:" + senderAddress.pretty().slice(0,20) + "..." + senderAddress.pretty().slice(-3)  + "</dd>";
+		}
+
+		ddTx += "<dd>minApprovalDelta:" + innerTx.minApprovalDelta  + "</dd>";
+		ddTx += "<dd>minRemovalDelta:" + innerTx.minRemovalDelta  + "</dd>";
+		ddTx += "<dd>addressAdditions</dd>";
+		for(var address of innerTx.addressAdditions){
+
+			let dispAddress;
+			if(address.constructor.name === "NamespaceId"){
+
+				//ソケット受信した場合は名前情報が抜け落ちているのでノードから再取得
+				const namespaceInfo = await nodeFetchNamespaces(address.toHex());
+				const accountNamespace = await nodeFetchAccountNames(sym.Address.createFromEncoded(namespaceInfo.alias.address).plain());
+
+				dispAddress = accountNamespace[0].names[0];
+			}else{
+				dispAddress = address.pretty().slice(0,20) + "..." + address.pretty().slice(-3);
+			}
+
+			ddTx += "<dd>　[" + dispAddress + "]</dd>";
+		}
+
+		ddTx += "<dd>addressDeletions</dd>";
+		for(var address of innerTx.addressDeletions){
+
+			let dispAddress;
+			if(address.constructor.name === "NamespaceId"){
+
+				//ソケット受信した場合は名前情報が抜け落ちているのでノードから再取得
+				const namespaceInfo = await nodeFetchNamespaces(address.toHex());
+				const accountNamespace = await nodeFetchAccountNames(sym.Address.createFromEncoded(namespaceInfo.alias.address).plain());
+
+				dispAddress = accountNamespace[0].names[0];
+			}else{
+				dispAddress = address.pretty().slice(0,20) + "..." + address.pretty().slice(-3);
+			}
+
+			ddTx += "<dd>　[" + dispAddress + "]</dd>";
+		}
+
+	break;
+	}
+	return ddTx;
+
+//	var ddTx = "<dd>送信者:" + senderAddress.pretty().slice(0,14) + "..." + senderAddress.pretty().slice(-3) + "</dd>";
+/*
+	switch (sym.TransactionType[tx.type]) {
+		case "TRANSFER":
+			ddTx += "<dd>→受信者:" + tx.recipientAddress.pretty().slice(0,14) + "..." + tx.recipientAddress.pretty().slice(-3)  + "</dd>";
+
+			for(var item of tx.mosaics){
+
+				const mosaic = await getMosaicAsset(item.id);
+				ddTx += "<dd>　[" + mosaic.label + ":" + dispAmount(item.amount.toString(),mosaic.info.divisibility) + "]</dd>";
+			}
+
+			break;
+		case "MULTISIG_ACCOUNT_MODIFICATION":	break;
+		case "ACCOUNT_METADATA":	break;
+		case "NAMESPACE_METADATA":	break;
+		case "NAMESPACE_REGISTRATION":	break;
+		case "HASH_LOCK":	break;
+		case "SECRET_LOCK":	break;
+		case "SECRET_PROOF":	break;
+		case "MOSAIC_METADATA":	break;
+		case "MOSAIC_DEFINITION":	break;
+		case "MOSAIC_SUPPLY_CHANGE":	break;
+		case "MOSAIC_ALIAS":	break;
+		case "ADDRESS_ALIAS":	break;
+		case "MOSAIC_GLOBAL_RESTRICTION":	break;
+		case "MOSAIC_ADDRESS_RESTRICTION":	break;
+		case "ACCOUNT_MOSAIC_RESTRICTION":	break;
+		case "ACCOUNT_ADDRESS_RESTRICTION":	break;
+		case "ACCOUNT_OPERATION_RESTRICTION":	break;
+		case "VOTING_KEY_LINK":	break;
+		case "VRF_KEY_LINK":	break;
+		case "NODE_KEY_LINK":	break;
+		case "ACCOUNT_KEY_LINK":	break;
+//		case "AGGREGATE_COMPLETE":	break;
+//		case "AGGREGATE_BONDED":	break;
+
+		default:
+			console.log(sym.TransactionType[tx.type]);
+	}
+*/
+
+}
+
+//認証
+
+function clickModalCosign(){
+
+	authMode = "cosign";
+	$('#modal_auth').modal('show');
+}
+
+function clickModalTransaction(){
+
+	authMode = "transaction";
+	$('#modal_auth').modal('show');
+}
+
+function clickKey(){
+
+	authMode = "key";
+	$('#modal_auth').modal('show');
+}
+
+function clickAddMultisig(){
+
+	if($('#multisig_tree').jstree('get_selected').length == 0){
+		alert("マルチシグを変更したいアカウントを選択してください。");
+		return;
+	}
+
+	scanMode = "add_multisig";
+	$('#modal_qr_scan').modal('show');
+	startVideo();
+}
+
+function clickDelMultisig(){
+
+	if($('#multisig_tree').jstree('get_selected').length == 0){
+		alert("マルチシグを変更したいアカウントを選択してください。");
+		return;
+	}
+
+	if($('#multisig_tree').jstree(true).get_json($('#multisig_tree').jstree('get_selected')).icon === "jstree-file"){
+		alert("マルチシグ以外のアカウントを削除することはできません");
+		return;
+	}
+
+	scanMode = "del_multisig";
+	$('#modal_qr_scan').modal('show');
+	startVideo();
+}
+
+function clickAddAddress(){
+
+	if($('#address_tree').jstree('get_selected').length == 0){
+		alert("アドレスを追加したいグループを選択してください。");
+		return
+	}
+
+	if($('#address_tree').jstree(true).get_json($('#address_tree').jstree('get_selected')).icon === "jstree-file"){
+		alert("アドレスにアドレスを追加することはできません");
+		return;
+	}
+
+	scanMode = "add_address";
+	$('#modal_qr_scan').modal('show');
+	startVideo();
+}
+
+//モザイク選択画面が閉じられたとき
+$('#modal_transfer').on('hide.bs.modal', function (e) {
+
+	const formContainer = document.getElementById("form-container");
+	formContainer.innerHTML = ''; // フォームコンテナを空にする
+});
+
+$('#modal_qr_scan').on('hide.bs.modal', function (e) {
+	stopVideo();		
+	clearRect();
+	$('#file_image').val("");
+});
+
+$('#modal_cosign').on('hide.bs.modal', function (e) {
+	$("#transfer_info").empty();
+});
+
+$('#modal_transaction').on('hide.bs.modal', function (e) {
+	$("#transaction_info").empty();
+});
+
+$('#modal_key').on('hide.bs.modal', function (e) {
+
+	document.getElementById("modal_public_key").textContent = "";
+	document.getElementById("modal_private_key").textContent = "";
+
+});
+
+$('#modal_auth').on('hide.bs.modal', function (e) {
+
+	document.getElementById('modal_input_login_password').value = "";
+});
+
+function clickAddGroup(){
+
+	if($('#address_tree').jstree('get_selected').length == 0){
+		alert("グループを追加するグループを選択してください。");
+		return;
+	}
+
+	if($('#address_tree').jstree(true).get_json($('#address_tree').jstree('get_selected')).icon === "jstree-file"){
+		alert("アドレスにグループを追加することはできません");
+		return;
+	}
+	$('#modal_add_group').modal('show');
+}
+
+function clickDelGroup(){
+
+	if($('#address_tree').jstree('get_selected').length == 0){
+		alert("削除する対象ノードを選択してください。");
+		return;
+	}
+
+	$('#address_tree').jstree(true).delete_node($('#address_tree').jstree('get_selected')[0]);
+
+	localStorage.setItem('dodid:address_tree',
+		JSON.stringify($('#address_tree').jstree(true).get_json('generalgroup', {flat:true}).filter(j=>j.id !== 'generalgroup'))
+	);
+}
+
+async function clickTransfer(){
+
+	$('#modal_transfer').modal('show');
+	await createTransferForm();
+}
+
+//mulstisig
+const decreaseMinRemoval  = document.getElementById("decreaseMinRemoval");
+const increaseMinRemoval  = document.getElementById("increaseMinRemoval");
+const decreaseMinApproval = document.getElementById("decreaseMinApproval");
+const increaseMinApproval = document.getElementById("increaseMinApproval");
+const valueMinRemoval     = document.getElementById("valueMinRemoval");
+const valueMinApproval    = document.getElementById("valueMinApproval");
+
+decreaseMinRemoval.addEventListener( "click", function(){currentValueMinRemoval  -= 1;showMultisigMinValue();});
+increaseMinRemoval.addEventListener( "click", function(){currentValueMinRemoval  += 1;showMultisigMinValue();});
+decreaseMinApproval.addEventListener("click", function(){currentValueMinApproval -= 1;showMultisigMinValue();});
+increaseMinApproval.addEventListener("click", function(){currentValueMinApproval += 1;showMultisigMinValue();});
+
+async function clickUpdMultisigMinValue(){
+
+	if($('#multisig_tree').jstree('get_selected').length == 0){
+		alert("マルチシグを変更したいアカウントを選択してください。");
+		return;
+	}
+
+	if($('#multisig_tree').jstree(true).get_json($('#multisig_tree').jstree('get_selected')).icon === "jstree-file"){
+		alert("マルチシグ以外のアカウントを変更することはできません");
+		return;
+	}
+
+	const multisig = await getSelectedAccountInfoByNodeFetch("/multisig");
+	currentValueMinApproval = multisig.multisig.minApproval;
+	currentValueMinRemoval = multisig.multisig.minRemoval;
+	showMultisigMinValue();
+
+	$('#modal_mod_multisig').modal('show');
+}
+
+function showMultisigMinValue() {
+
+	valueMinRemoval.textContent = currentValueMinRemoval;
+	valueMinApproval.textContent = currentValueMinApproval;
+}
+
+//async function nodeFetchBySelectedAccount(infoType){
+async function getSelectedAccountInfoByNodeFetch(infoType){
+	const selectedAccount = $('#multisig_tree').jstree('get_selected')[0];
+	const res = await getAccountInfoByNodeFetch(sym.Address.createFromEncoded(selectedAccount).plain(),infoType)
+	return res;
+}
+
+async function nodeFetchSelectedAccountInfo(){
+	const selectedAccount = $('#multisig_tree').jstree('get_selected')[0];
+	const res = await nodeFetch(nodeUrl + "/accounts/" + sym.Address.createFromEncoded(selectedAccount).plain());
+	return JSON.parse(res);
+}
+
+async function nodeFetchSelectedPublicAccount(){
+
+	const selectedEncodedAddress = $('#multisig_tree').jstree('get_selected')[0];
+	if(selectedEncodedAddress === sym.Address.createFromRawAddress(signerRawAddress).encoded()){
+		return signerPublicAccount;
+	}else{
+		res = await nodeFetch(nodeUrl + "/accounts/" + sym.Address.createFromEncoded(selectedEncodedAddress).plain());
+		return sym.PublicAccount.createFromPublicKey(JSON.parse(res).account.publicKey,networkType);
+	}
+}
+
+async function getAccountInfoByNodeFetch(add,infoType){
+	const res = await nodeFetch(nodeUrl + "/account/" + add + infoType);
+	return JSON.parse(res);
+}
+
+async function getMosaicsInfoByNodeFetch(mosaicIds){
+	const res = await nodeFetch(nodeUrl + "/mosaics","POST",mosaicIds)
+	return JSON.parse(res);
+}
+
+$('#file_image').change(function(e){scanFileImage("file_image");});
+</script>
+</body>
+</html>
