@@ -1,23 +1,4 @@
 
-const NODES = [
-"https://001-sai-dual.symboltest.net:3001",
-"https://201-sai-dual.symboltest.net:3001",
-"https://401-sai-dual.symboltest.net:3001",
-//"https://pequod.cola-potatochips.net:3001",
-"https://vmi831828.contaboserver.net:3001",
-"https://marrons-xym-farm001-test.com:3001",
-"https://vmi1087624.contaboserver.net:3001",
-"https://vmi835907.contaboserver.net:3001",
-"https://mikun-testnet.tk:3001",
-"https://mikun-testnet2.tk:3001",
-"https://reference.symboltest.net:3001",
-"https://sym-test-01.opening-line.jp:3001",
-"https://sym-test-03.opening-line.jp:3001",
-"https://symbol-azure.0009.co:3001",
-"https://test01.xymnodes.com:3001",
-"https://test02.xymnodes.com:3001",
-];
-
 
 NG_NODE = [
 "https://xym.jp2.node.leywapool.com:3001",
@@ -30,7 +11,7 @@ NG_NODE = [
 "https://xym.jp1.node.leywapool.com:3001",
 
 ];
-/*
+
 NODES = [
 "https://ik1-432-48199.vs.sakura.ne.jp:3001",
 "https://001symbol.blockchain-node.tech:3001",
@@ -258,7 +239,7 @@ NODES = [
 "https://yumeloto.com:3001",
 "https://yumeya1.com:3001",
 ];
-*/
+
 const configSymbolApplication = {
 	nodes:NODES,
 	selectNodeCount:3,  //同期確認のために接続するノード数
