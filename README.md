@@ -4,7 +4,7 @@ for DID. Do DID!
 # URLs(GitPages)
 
 - index.html
-- testnet.html
+- [testnet.html](https://kicnft.github.io/dodid/testnet.html)
 - tomato.html
 
 # 画面
