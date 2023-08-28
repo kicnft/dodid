@@ -1502,11 +1502,6 @@ async function clickUpdMultisigMinValue(){
 		return;
 	}
 
-	if($('#multisig_tree').jstree(true).get_json($('#multisig_tree').jstree('get_selected')).icon === "jstree-file"){
-		alert("マルチシグ以外のアカウントを変更することはできません");
-		return;
-	}
-
 	const multisig = await getSelectedAccountInfoByNodeFetch("/multisig");
 	currentValueMinApproval = multisig.multisig.minApproval;
 	currentValueMinRemoval = multisig.multisig.minRemoval;
