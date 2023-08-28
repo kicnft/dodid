@@ -1131,13 +1131,21 @@ async function clickModalTransfer() {
 async function clickModalModMultisig() {
 
 	const selectedPublicAccount = await nodeFetchSelectedPublicAccount();
-	const multisig = await getSelectedAccountInfoByNodeFetch("/multisig");
 
 	let multisigTx = transactionList.find(tx => tx.signer.publicKey  === selectedPublicAccount.publicKey && tx.type === 16725);
+	let chainValueMinApproval = 0;
+	let chainValueMinRemoval = 0;
+	try{
+		const multisig = await getSelectedAccountInfoByNodeFetch("/multisig");
+		chainValueMinApproval = multisig.multisig.minApproval;
+		chainValueMinRemoval = multisig.multisig.minRemoval;
+	}catch(err){}
+
 	if(multisigTx !== undefined){
 
-		multisigTx.minApprovalDelta = currentValueMinApproval - multisig.multisig.minApproval;
-		multisigTx.minRemovalDelta = currentValueMinRemoval - multisig.multisig.minRemoval;
+		multisigTx.minApprovalDelta = currentValueMinApproval - chainValueMinApproval;
+		multisigTx.minRemovalDelta = currentValueMinRemoval - chainValueMinRemoval;
+
 		console.log(multisigTx);
 		alert("既存のtransaction listを更新しました。");
 
@@ -1145,8 +1153,8 @@ async function clickModalModMultisig() {
 
 		multisigTx = sym.MultisigAccountModificationTransaction.create(
 			sym.Deadline.create(epochAdjustment), 
-			currentValueMinApproval - multisig.multisig.minApproval, //承認のために必要な最小署名者数増分
-			currentValueMinRemoval - multisig.multisig.minRemoval, //除名のために必要な最小署名者数増分
+			currentValueMinApproval - chainValueMinApproval, //承認のために必要な最小署名者数増分
+			currentValueMinRemoval - chainValueMinRemoval, //除名のために必要な最小署名者数増分
 			[], //追加対象アドレス
 			[],//除名対象アドレス
 			networkType
