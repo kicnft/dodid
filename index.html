@@ -1504,9 +1504,6 @@ async function clickUpdMultisigMinValue(){
 		return;
 	}
 
-	const multisig = await getSelectedAccountInfoByNodeFetch("/multisig");
-	currentValueMinApproval = multisig.multisig.minApproval;
-	currentValueMinRemoval = multisig.multisig.minRemoval;
 	showMultisigMinValue();
 
 	$('#modal_mod_multisig').modal('show');
