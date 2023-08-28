@@ -482,6 +482,8 @@ async function clickModalAccount(){
 		}else{
 			alert("インポート（新規作成）した鍵を保存せずにツールを使用します。ブラウザを閉じると消去されます。");
 		}
+	}else{
+		localStorage.setItem('dodid',encryptedSignerJSON);
 	}
 	delete signerAccount;
 	delete signerQR;
