@@ -303,6 +303,7 @@ let accountAddresses;
 //QRスキャンモード
 let scanMode="";
 let authMode="login";
+let maxCosignatureCount = 0;
 
 const jsondata2 = [
 	{ id: 'generalgroup', parent: '#', icon: 'jstree-folder', text: '一般', state: {'opened': true}},
@@ -399,9 +400,10 @@ startSymbolApplication(
 			}
 
 		}else if(event.topic.includes("partialAdded/"	 )){
-			await checkPartialTransaction();
-			$.toast({heading: 'Information',text: '連署処理中...',showHideTransition: 'plain',icon: 'info',hideAfter:false});
-
+			const res = await checkPartialTransaction();
+			if(res){
+				$.toast({heading: 'Information',text: '連署処理中...',showHideTransition: 'plain',icon: 'info',hideAfter:false});
+			}
 		}else if(event.topic.includes("status/" 		 )){$.toast({heading: 'Error'	   ,text: event.data.code,				showHideTransition: 'plain',hideAfter: false,icon: 'error'});
 		}
 	},
@@ -525,9 +527,8 @@ async function clickModalAuth(){
 			transactionList,
 			networkType,
 			[],
-			sym.UInt64.fromUint(100000)
-		);
-		//.setMaxFeeForAggregate(100, 4);
+//			sym.UInt64.fromUint(100000)
+		).setMaxFeeForAggregate(100, maxCosignatureCount);
 
 		signedAggregateTx = signerAccount.sign(aggregateTx, generationHash);
 		const hashLockTx = sym.HashLockTransaction.create(
@@ -607,6 +608,7 @@ async function settingSignerAccount(publicAccount){
 
 		const multisigGraph = await getAccountInfoByNodeFetch(signerRawAddress,"/multisig/graph");
 		accountNames = await nodeFetchAccountNames(multisigGraph.map(t=>t.multisigEntries).flat().map(fm=>sym.Address.createFromEncoded(fm.multisig.accountAddress).plain()));
+		maxCosignatureCount = multisigGraph.map(m=>m.multisigEntries).flat().map(m=>m.multisig.minApproval).reduce((sum, element) => sum + element, 0);
 
 		console.log(multisigGraph);
 		$('#multisig_tree').jstree({
@@ -666,7 +668,10 @@ async function settingSignerAccount(publicAccount){
 		socketSend(nodeSocket,'partialAdded/' + targetAddress);
 	}
 
-	await checkPartialTransaction();
+	const res = await checkPartialTransaction();
+	if(res){
+		$.toast({heading: 'Information',text: '連署処理中...',showHideTransition: 'plain',icon: 'info',hideAfter:false});
+	}
 }
 
 ///onPhysicalMessage ここから///
@@ -948,17 +953,6 @@ async function checkPartialTransaction(){
 		.filter(x => x.transaction.signerPublicKey !== publicKey)
 		.filter(x => !x.transaction.cosignatures.map(c=>c.signerPublicKey).includes(publicKey));
 
-		if(cosignatureRequieredTxes.length > 0){
-			$.toast({
-				heading: 'Information',
-				text: '連署待ちトランザクション <a href="javascript:void(0)" onclick="showCosignModal()">確認</a>',
-				showHideTransition: 'plain',
-				icon: 'info',
-				hideAfter:false
-			});
-			console.log(cosignatureRequieredTxes);
-		}
-
 		//パーシャルトランザクションの1つを抜粋で表示
 		//改善の余地あり TODO
 		const targetRawAddress = JSON.parse(partialTxes)[0].transaction.transactions.map(tf=> sym.Address.createFromPublicKey(tf.transaction.signerPublicKey,networkType).plain())[0];
@@ -981,7 +975,24 @@ async function checkPartialTransaction(){
 			//マルチシグをまだ構成していないアカウントはこちらへ逃がす
 			//未実装 TODO
 		}
+
+		if(cosignatureRequieredTxes.length > 0){
+			$.toast({
+				heading: 'Information',
+				text: '連署待ちトランザクション <a href="javascript:void(0)" onclick="showCosignModal()">確認</a>',
+				showHideTransition: 'plain',
+				icon: 'info',
+				hideAfter:false
+			});
+			console.log(cosignatureRequieredTxes);
+
+			return false;//すでにtoastしたのでfalseで返す。
+		}else{
+
+			return true;//呼び出し元にtoastの必要性をtrueで伝える。
+		}
 	}
+	return false;
 }
 
 async function refreshTransactionList(){
@@ -990,9 +1001,10 @@ async function refreshTransactionList(){
 	for(let tx of transactionList){
 
 		const id = tx.deadline.toString();
-		createFolder("#transaction_tree",id,sym.TransactionType[tx.type],"#");
 
 		if(tx.type === 16725){
+
+			createFolder("#transaction_tree",id,sym.TransactionType[tx.type],"#");
 
 			const signerAddress = tx.signer.address;
 			const accountName = accountNames.find(an=>an.address === signerAddress.encoded());
@@ -1038,6 +1050,21 @@ async function refreshTransactionList(){
 			}
 		}else if(tx.type === 16724){
 
+			let nodeText;
+			let suffix;
+			if(tx.recipientAddress.constructor.name === "NamespaceId"){
+
+				suffix = tx.recipientAddress.fullName;
+				nodeText = suffix;
+
+			}else{
+				
+				suffix = tx.recipientAddress.pretty();
+				nodeText = suffix.slice( 0, 20 ) + "..." +  suffix.slice( -3 );
+			}
+
+			createFolder("#transaction_tree",id + suffix,sym.TransactionType[tx.type],"#");
+
 			const signerAddress = tx.signer.address;
 			const accountName = accountNames.find(an=>an.address === signerAddress.encoded());
 			let signerAddressText;
@@ -1047,19 +1074,9 @@ async function refreshTransactionList(){
 				signerAddressText = signerAddress.pretty().slice( 0, 20 ) + "..." +  signerAddress.pretty().slice( -3 );
 			}
 
-			let nodeText;
-			if(tx.recipientAddress.constructor.name === "NamespaceId"){
-
-				nodeText = tx.recipientAddress.fullName;
-
-			}else{
-				const prettyAddress = tx.recipientAddress.pretty();
-				nodeText = prettyAddress.slice( 0, 20 ) + "..." +  prettyAddress.slice( -3 );
-			}
-
-			createFile('#transaction_tree',id + "signer"          ,"送信者：" + signerAddressText,id);
-			createFile('#transaction_tree',id + "recipientAddress","受信者：" + nodeText,id);
-			createFolder("#transaction_tree",id + "mosaics","mosaics",id);
+			createFile('#transaction_tree',id + suffix + "signer"          ,"送信者：" + signerAddressText,id + suffix);
+			createFile('#transaction_tree',id + suffix + "recipientAddress","受信者：" + nodeText,id + suffix);
+			createFolder("#transaction_tree",id + suffix + "mosaics","mosaics",id + suffix);
 
 			const mosaics = await getMosaicsInfoByNodeFetch({ "mosaicIds": tx.mosaics.map(m=>m.id.toHex())});
 			const mosaicNames = await nodeFetchMosaicNames(mosaics.map(m => m.mosaic.id));
@@ -1082,7 +1099,7 @@ async function refreshTransactionList(){
 				}else{
 					mosaicName = mosaic.id;
 				}
-				createFile('#transaction_tree',id+"mosaics"+ mosaic.id,mosaicName + ":" + mosaic.amount,id + "mosaics");
+				createFile('#transaction_tree',id + suffix + "mosaics"+ mosaic.id,mosaicName + ":" + mosaic.amount,id + suffix + "mosaics");
 			}
 		}
 	}
