@@ -226,7 +226,7 @@ canvas {
 	</div>
 
 	<div class="modal-footer">
-		<button type="button" class="btn btn-primary" data-dismiss="modal" onclick="clickModalAuth()">OK</button>
+		<button type="button" class="btn btn-primary" onclick="clickModalAuth()">OK</button>
 		<button type="button" class="btn btn-default" data-dismiss="modal">キャンセル</button>
 	</div><!-- /.modal-footer -->
 </div></div><!-- /.modal-content --><!-- /.modal-dialog -->
@@ -253,7 +253,7 @@ canvas {
 	</div>
 
 	<div class="modal-footer">
-		<button type="button" class="btn btn-primary" data-dismiss="modal"  onclick="clickModalAccount()">作成</button>
+		<button type="button" class="btn btn-primary" onclick="clickModalAccount()">作成</button>
 		<button type="button" class="btn btn-default" data-dismiss="modal">キャンセル</button>
 	</div><!-- /.modal-footer -->
 </div></div><!-- /.modal-content --><!-- /.modal-dialog -->
@@ -294,13 +294,6 @@ let currencyMosaicId;
 let signedAggregateTx;
 let announcedTxHash;
 let accountNames;
-
-//const privateKey = "0EB15246CF2CE280E7C278B2B6227E287A88B833010DE6C2D7CD2440FCF79063";//bob
-//const address = "TAB7VHVFYITJQDLU5H7HP2W7N7Q4JMNV73CDNBY";//bob
-
-//let privateKey = "EF4706C9BA9ADD8E980EB73F407B5A4988B4218D74ED9C09529383145E35DFE1";//ivan1
-//let address = "TAK7CN3V4MYH5S3LRHBXPFNLAU6IN5RBINKBIKY";//ivan1
-
 let transactionList = new Array();
 let currentValueMinApproval = 0;
 let currentValueMinRemoval = 0;
@@ -417,10 +410,22 @@ startSymbolApplication(
 	async function(event){
 
 		console.log(event);
-		if(scanMode === "add_address"){             scanAddAddress(event.data.address.address);
-		}else if(scanMode === "add_multisig"){await scanAddMultisig(event.data.address.address);
-		}else if(scanMode === "del_multisig"){await scanDelMultisig(event.data.address.address);
+
+		let rawAddress;
+		if(event.data.publicKey){
+			rawAddress = sym.PublicAccount.createFromPublicKey(event.data.publicKey,networkType).address.plain();
+		}else if(event.data.address){
+			rawAddress = event.data.address.address;
+		}else{
+			alert("対応していないQRコードです。");
+			return;
 		}
+
+		if(scanMode === "add_address"){             scanAddAddress(rawAddress);
+		}else if(scanMode === "add_multisig"){await scanAddMultisig(rawAddress);
+		}else if(scanMode === "del_multisig"){await scanDelMultisig(rawAddress);
+		}
+
 		$('#modal_qr_scan').modal('hide');
 	},
 
@@ -471,6 +476,8 @@ async function clickModalAccount(){
 			return;
 		}
 	}
+	$("#modal_account").modal("hide");
+
 	signerPublicAccount = signerAccount.publicAccount;
 	const signerQR = qr.QRCodeGenerator.createExportAccount(signerAccount.privateKey, networkType, null,pw.value); //passには認証したアカウントから
 
@@ -500,8 +507,11 @@ async function clickModalAuth(){
 	try{
 		signerQR = qr.AccountQR.fromJSON(localStorage.getItem('dodid'),pw.value);
 	}catch(err){
-		alert("パスワードが正しくありません。")
+		alert("パスワードが正しくありません。");
+		return;
 	}
+
+	$("#modal_auth").modal("hide");
 	const signerAccount = sym.Account.createFromPrivateKey(signerQR.accountPrivateKey,networkType);
 	signerPublicAccount = signerAccount.publicAccount;
 
@@ -662,27 +672,23 @@ async function settingSignerAccount(publicAccount){
 ///onPhysicalMessage ここから///
 function scanAddAddress(rawAddress){
 
-	try{
-		const address = sym.Address.createFromRawAddress(rawAddress);
-		const addAddress = address.encoded();
-		const prettyAddress = address.pretty();
-		const nodeText = prettyAddress.slice( 0, 20 ) + "..." +  prettyAddress.slice( -3 );
+	const address = sym.Address.createFromRawAddress(rawAddress);
+	const addAddress = address.encoded();
+	const prettyAddress = address.pretty();
+	const nodeText = prettyAddress.slice( 0, 20 ) + "..." +  prettyAddress.slice( -3 );
 
-		if( $('#address_tree').jstree(true).get_node(addAddress)){
-			alert("そのアカウントはすでに登録済みです。");
-			return;
-		}
-
-		const node = { id: addAddress, address:addAddress ,icon: 'jstree-file', text: nodeText, state: {'opened': true}};
-		const selectedParent = $('#address_tree').jstree('get_selected')[0];
-
-		$('#address_tree').jstree(true).create_node( selectedParent, node);
-		localStorage.setItem('dodid:address_tree',
-			JSON.stringify($('#address_tree').jstree(true).get_json('generalgroup', {flat:true}).filter(j=>j.id !== 'generalgroup'))
-		);
-	}catch{
-		alert("QRコードのデータを認識できませんでした。");
+	if( $('#address_tree').jstree(true).get_node(addAddress)){
+		alert("そのアカウントはすでに登録済みです。");
+		return;
 	}
+
+	const node = { id: addAddress, address:addAddress ,icon: 'jstree-file', text: nodeText, state: {'opened': true}};
+	const selectedParent = $('#address_tree').jstree('get_selected')[0];
+
+	$('#address_tree').jstree(true).create_node( selectedParent, node);
+	localStorage.setItem('dodid:address_tree',
+		JSON.stringify($('#address_tree').jstree(true).get_json('generalgroup', {flat:true}).filter(j=>j.id !== 'generalgroup'))
+	);
 }
 
 async function scanAddMultisig(rawAddress){
