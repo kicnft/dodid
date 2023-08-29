@@ -86,6 +86,7 @@ https://chart.apis.google.com/chart?chs=150x150&cht=qr&chl={"data":{"address":{"
 ### 転送トランザクション
 マルチシグリストに表示されている作成したアカウントから、アドレスリストに登録したアドレス、グループに対してモザイクを送信することができます。
 双方をマウスでクリックして選択してから、転送ボタンをクリックしてください。
+転送ボタンをクリックすると、転送元に指定したアカウントが所有するモザイク一覧と送信メッセージが表示されます。
 
 ![image](https://github.com/kicnft/dodid/assets/143278361/3d43092e-1cf5-4db5-b818-841aa9cd1ccf)
 
@@ -93,17 +94,16 @@ https://chart.apis.google.com/chart?chs=150x150&cht=qr&chl={"data":{"address":{"
 
 ![image](https://github.com/kicnft/dodid/assets/143278361/a3972830-9b2b-4e63-afdb-5deceb8925ec)
 
-転送ボタンをクリックすると、転送元に指定したアカウントが所有するモザイク一覧と送信メッセージが表示されます。
-
-![image](https://github.com/kicnft/dodid/assets/143278361/bd1eea49-b9a3-41ba-8769-f3bcf1b18ce6)
-
-
 OKボタンをクリックするとトランザクションリストに追加されます（この時点ではまだトランザクションは実行されていません。）
 送信先はグループを選択することも可能です。その場合、トランザクションは分割して作成されトランザクションリストに追加されます。
 
-![image](https://github.com/kicnft/dodid/assets/143278361/f13d961c-2079-4fff-b9a6-ee9e04b37926)
+![image](https://github.com/kicnft/dodid/assets/143278361/259b3fc2-d312-4cf6-8e35-b91564bb629a)
 
 最後に署名・通知ボタンをクリックしてトランザクションを実行してください。最後に簡単な確認画面が表示されます。
+
+![image](https://github.com/kicnft/dodid/assets/143278361/0a80d25e-1b39-4f16-af8e-d9319c5f4769)
+
+
 
 ### マルチシグ変更
 マルチシグの構成を変更したいアカウントを選択して、新規にアカウントの追加や既存のアカウントの削除を行ってください。
