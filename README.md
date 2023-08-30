@@ -5,7 +5,7 @@ For DID. Do DID!
 
 - [index.html](https://kicnft.github.io/dodid/)
 - [testnet.html](https://kicnft.github.io/dodid/testnet.html)
-- tomato.html
+- [トマティーナ用(ログイン情報が都度リセットされます)](https://kicnft.github.io/dodid/?reset=true)
 
 # 画面
 
