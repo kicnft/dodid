@@ -335,7 +335,7 @@ const Buffer = require("/node_modules/buffer").Buffer;
 startSymbolApplication(
 
 	configSymbolApplication,
-	//初期設定完了後 ready
+	//初期設定完了後 onReady
 	async function(node){
 
 		$.toast({heading: 'Information',text: 'ネットワーク接続：Symbol',showHideTransition: 'plain',icon: 'info',});
@@ -360,8 +360,46 @@ startSymbolApplication(
 			$("#modal_auth").modal("show");
 		}
 	},//ready
+	//onStatusChange ノード再選択時
+	function(event){
 
-	//ソケット受信時
+		if(event.name == "retry"){	$.toast({heading: 'Warning',text: 'ノード再接続',	showHideTransition: 'plain',icon: 'warning'	});
+		}else{
+			if(event.data){
+				$.toast({heading: 'Error',	text: 'Connection Failed',		showHideTransition: 'fade',	icon: 'error'	});
+				console.log(event.data);
+
+			}else{
+				$.toast({heading: event.name,	text: event.message,		showHideTransition: 'fade',	icon: 'error'	});
+			}
+		}
+	},
+	//QR受信時:onPhysicalMessage
+	async function(event){
+
+		console.log(event);
+
+		let rawAddress;
+		if(event.data.publicKey){
+			rawAddress = sym.PublicAccount.createFromPublicKey(event.data.publicKey,networkType).address.plain();
+		}else if(event.data.address){
+			rawAddress = event.data.address.address;
+		}else{
+			alert("対応していないQRコードです。");
+			return;
+		}
+
+		if(scanMode === "add_address"){             scanAddAddress(rawAddress);
+		}else if(scanMode === "add_multisig"){await scanAddMultisig(rawAddress);
+		}else if(scanMode === "del_multisig"){await scanDelMultisig(rawAddress);
+		}
+
+		$('#modal_qr_scan').modal('hide');
+	},
+
+
+
+	//onSocketMessage ソケット受信時
 	async function(event){
 
 		if(event.topic.includes("unconfirmedAdded/")){
@@ -408,30 +446,8 @@ startSymbolApplication(
 		}
 	},
 
-	//QR受信時:onPhysicalMessage
-	async function(event){
 
-		console.log(event);
-
-		let rawAddress;
-		if(event.data.publicKey){
-			rawAddress = sym.PublicAccount.createFromPublicKey(event.data.publicKey,networkType).address.plain();
-		}else if(event.data.address){
-			rawAddress = event.data.address.address;
-		}else{
-			alert("対応していないQRコードです。");
-			return;
-		}
-
-		if(scanMode === "add_address"){             scanAddAddress(rawAddress);
-		}else if(scanMode === "add_multisig"){await scanAddMultisig(rawAddress);
-		}else if(scanMode === "del_multisig"){await scanDelMultisig(rawAddress);
-		}
-
-		$('#modal_qr_scan').modal('hide');
-	},
-
-	//ソケット再起動時
+	//onSocketResumed ソケット再起動時
 	function(ws){
 
 		nodeSocket = ws;
@@ -441,21 +457,7 @@ startSymbolApplication(
 		socketSend(nodeSocket,'unconfirmedAdded/' + signerRawAddress);
 		$.toast({heading: 'Warning',text: 'Socket Resumed',showHideTransition: 'plain',icon: 'warning'});
 	},
-
-	//ノード再選択時
-	function(event){
-
-		if(event.name == "retry"){	$.toast({heading: 'Warning',text: 'ノード再接続',	showHideTransition: 'plain',icon: 'warning'	});
-		}else{
-			if(event.data){
-				$.toast({heading: 'Error',	text: 'Connection Failed',		showHideTransition: 'fade',	icon: 'error'	});
-				console.log(event.data);
-
-			}else{
-				$.toast({heading: event.name,	text: event.message,		showHideTransition: 'fade',	icon: 'error'	});
-			}
-		}
-	}
+	async function(){/* onVisible 画面フォーカス回復時     */}
 );
 
 //アプリケーション起動時コールバック終了
