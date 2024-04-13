@@ -331,6 +331,35 @@ const sym = require("/node_modules/symbol-sdk");
 const qr  = require("/node_modules/symbol-qr-library");
 const Buffer = require("/node_modules/buffer").Buffer;
 
+//ディープリンク
+const params = new URLSearchParams(document.location.search.substring(1));
+const reset = params.get("reset");
+const network = params.get("network");
+const walletId = params.get("id");
+
+let nodeSet;
+if(network === "testnet"){
+	nodeSet = TEST_NODES;
+}else{
+	nodeSet = NODES;
+}
+
+let storageId = "dodid:";
+if(walletId){
+	storageId += walletId + ":";
+}
+
+
+const CONFIG_SYMBOL_APPLICATION = {
+	nodes:nodeSet,
+	selectNodeCount:3,  //同期確認のために接続するノード数
+	timeout:8000,  //ノード接続待機時間 ミリ秒
+	heightDiffThreshold:  1, // 同期判断ブロック高差
+	retryCount:30, //最大再接続回数
+	mainnet:"MAIN_NET",
+	testnet:"TEST_NET"
+};
+
 //アプリケーション開始
 startSymbolApplication(
 
@@ -339,10 +368,6 @@ startSymbolApplication(
 	async function(node){
 
 		$.toast({heading: 'Information',text: 'ネットワーク接続：Symbol',showHideTransition: 'plain',icon: 'info',});
-
-		//ディープリンク
-		const params = new URLSearchParams(document.location.search.substring(1));
-		const reset = params.get("reset");
 
 		//グローバル変数
 		nodeUrl = node.url;
@@ -354,7 +379,7 @@ startSymbolApplication(
 
 		socketSend(nodeSocket,'block');
 
-		if(localStorage.getItem('dodid') == null|| reset === "true"){
+		if(localStorage.getItem(storageId) == null|| reset === "true"){
 			$("#modal_account").modal("show");
 		}else{
 			$("#modal_auth").modal("show");
@@ -481,14 +506,14 @@ async function clickModalAccount(){
 
 	encryptedSignerJSON = signerQR.toJSON();
 
-	if(localStorage.getItem('dodid')){
+	if(localStorage.getItem(storageId)){
 		if(window.confirm("保存している鍵情報を更新しますか？")){
-			localStorage.setItem('dodid',encryptedSignerJSON);
+			localStorage.setItem(storageId,encryptedSignerJSON);
 		}else{
 			alert("インポート（新規作成）した鍵を保存せずにツールを使用します。ブラウザを閉じると消去されます。");
 		}
 	}else{
-		localStorage.setItem('dodid',encryptedSignerJSON);
+		localStorage.setItem(storageId,encryptedSignerJSON);
 	}
 	delete signerAccount;
 	delete signerQR;
@@ -503,7 +528,7 @@ async function clickModalAuth(){
 	const pw = document.getElementById('modal_input_login_password');
 	let signerQR;
 	try{
-		signerQR = qr.AccountQR.fromJSON(localStorage.getItem('dodid'),pw.value);
+		signerQR = qr.AccountQR.fromJSON(localStorage.getItem(storageId),pw.value);
 	}catch(err){
 		alert("パスワードが正しくありません。");
 		return;
@@ -592,7 +617,7 @@ async function settingSignerAccount(publicAccount){
 	socketSend(nodeSocket,'unconfirmedAdded/' + signerRawAddress);
 	socketSend(nodeSocket,'partialAdded/' + signerRawAddress);
 
-	const loadAddressNodes = JSON.parse(localStorage.getItem('dodid:address_tree'));
+	const loadAddressNodes = JSON.parse(localStorage.getItem(storageId + 'address_tree'));
 	let addressNodes = jsondata2;
 	if(loadAddressNodes){
 		addressNodes = jsondata2.concat(loadAddressNodes);
@@ -687,7 +712,7 @@ function scanAddAddress(rawAddress){
 	const selectedParent = $('#address_tree').jstree('get_selected')[0];
 
 	$('#address_tree').jstree(true).create_node( selectedParent, node);
-	localStorage.setItem('dodid:address_tree',
+	localStorage.setItem(storageId + 'address_tree',
 		JSON.stringify($('#address_tree').jstree(true).get_json('generalgroup', {flat:true}).filter(j=>j.id !== 'generalgroup'))
 	);
 }
@@ -730,7 +755,7 @@ async function clickModalQrScan(){
 		const node = { id: "ns:" + namespace ,icon: 'jstree-file', text: namespace, state: {'opened': true}};
 		const selectedParent = $('#address_tree').jstree('get_selected')[0];
 		$('#address_tree').jstree(true).create_node( selectedParent, node);
-		localStorage.setItem('dodid:address_tree',
+		localStorage.setItem(storageId + 'address_tree',
 			JSON.stringify($('#address_tree').jstree(true).get_json('generalgroup', {flat:true}).filter(j=>j.id !== 'generalgroup'))
 		);
 	}else if(scanMode === "add_multisig"){ 
@@ -922,7 +947,7 @@ function clickModalAddGroup(){
 	$('#modal_add_group').modal('hide');
 	document.getElementById("modal_add_group_field").value = "";
 
-	localStorage.setItem('dodid:address_tree',
+	localStorage.setItem(storageId + 'address_tree',
 		JSON.stringify($('#address_tree').jstree(true).get_json('generalgroup', {flat:true}).filter(j=>j.id !== 'generalgroup'))
 	);
 }
@@ -1499,7 +1524,7 @@ function clickDelGroup(){
 	if(window.confirm("削除します。よろしいですか？")){
 		$('#address_tree').jstree(true).delete_node($('#address_tree').jstree('get_selected')[0]);
 
-		localStorage.setItem('dodid:address_tree',
+		localStorage.setItem(storageId + 'address_tree',
 			JSON.stringify($('#address_tree').jstree(true).get_json('generalgroup', {flat:true}).filter(j=>j.id !== 'generalgroup'))
 		);
 	}
