@@ -359,7 +359,7 @@ startSymbolApplication(
 		}else{
 			$("#modal_auth").modal("show");
 		}
-	},//ready
+	},
 	//onStatusChange ノード再選択時
 	function(event){
 
@@ -368,7 +368,6 @@ startSymbolApplication(
 			if(event.data){
 				$.toast({heading: 'Error',	text: 'Connection Failed',		showHideTransition: 'fade',	icon: 'error'	});
 				console.log(event.data);
-
 			}else{
 				$.toast({heading: event.name,	text: event.message,		showHideTransition: 'fade',	icon: 'error'	});
 			}
@@ -396,9 +395,6 @@ startSymbolApplication(
 
 		$('#modal_qr_scan').modal('hide');
 	},
-
-
-
 	//onSocketMessage ソケット受信時
 	async function(event){
 
@@ -445,8 +441,6 @@ startSymbolApplication(
 		}else if(event.topic.includes("status/" 		 )){$.toast({heading: 'Error'	   ,text: event.data.code,				showHideTransition: 'plain',hideAfter: false,icon: 'error'});
 		}
 	},
-
-
 	//onSocketResumed ソケット再起動時
 	function(ws){
 
