@@ -1398,10 +1398,9 @@ async function getTxInfo(innerTx){
 			console.log(sym.TransactionType[tx.type]);
 	}
 */
-
 }
 
-//認証
+//ボタンクリック
 
 function clickModalCosign(){
 
@@ -1467,39 +1466,6 @@ function clickAddAddress(){
 	startVideo("canvas");
 }
 
-//モザイク選択画面が閉じられたとき
-$('#modal_transfer').on('hide.bs.modal', function (e) {
-
-	const formContainer = document.getElementById("form-container");
-	formContainer.innerHTML = ''; // フォームコンテナを空にする
-});
-
-$('#modal_qr_scan').on('hide.bs.modal', function (e) {
-	stopVideo();		
-	clearRect();
-	$('#file_image').val("");
-});
-
-$('#modal_cosign').on('hide.bs.modal', function (e) {
-	$("#transfer_info").empty();
-});
-
-$('#modal_transaction').on('hide.bs.modal', function (e) {
-	$("#transaction_info").empty();
-});
-
-$('#modal_key').on('hide.bs.modal', function (e) {
-
-	document.getElementById("modal_public_key").textContent = "";
-	document.getElementById("modal_private_key").textContent = "";
-
-});
-
-$('#modal_auth').on('hide.bs.modal', function (e) {
-
-	document.getElementById('modal_input_login_password').value = "";
-});
-
 function clickAddGroup(){
 
 	if($('#address_tree').jstree('get_selected').length == 0){
@@ -1536,6 +1502,50 @@ async function clickTransfer(){
 	await createTransferForm();
 }
 
+async function clickUpdMultisigMinValue(){
+
+	if($('#multisig_tree').jstree('get_selected').length == 0){
+		alert("マルチシグを変更したいアカウントを選択してください。");
+		return;
+	}
+
+	showMultisigMinValue();
+	$('#modal_mod_multisig').modal('show');
+}
+
+//モーダル制御
+
+$('#modal_transfer').on('hide.bs.modal', function (e) {
+
+	const formContainer = document.getElementById("form-container");
+	formContainer.innerHTML = ''; // フォームコンテナを空にする
+});
+
+$('#modal_qr_scan').on('hide.bs.modal', function (e) {
+	stopVideo();		
+	clearRect();
+	$('#file_image').val("");
+});
+
+$('#modal_cosign').on('hide.bs.modal', function (e) {
+	$("#transfer_info").empty();
+});
+
+$('#modal_transaction').on('hide.bs.modal', function (e) {
+	$("#transaction_info").empty();
+});
+
+$('#modal_key').on('hide.bs.modal', function (e) {
+
+	document.getElementById("modal_public_key").textContent = "";
+	document.getElementById("modal_private_key").textContent = "";
+});
+
+$('#modal_auth').on('hide.bs.modal', function (e) {
+
+	document.getElementById('modal_input_login_password').value = "";
+});
+
 //mulstisig
 const decreaseMinRemoval  = document.getElementById("decreaseMinRemoval");
 const increaseMinRemoval  = document.getElementById("increaseMinRemoval");
@@ -1549,25 +1559,12 @@ increaseMinRemoval.addEventListener( "click", function(){currentValueMinRemoval 
 decreaseMinApproval.addEventListener("click", function(){currentValueMinApproval -= 1;showMultisigMinValue();});
 increaseMinApproval.addEventListener("click", function(){currentValueMinApproval += 1;showMultisigMinValue();});
 
-async function clickUpdMultisigMinValue(){
-
-	if($('#multisig_tree').jstree('get_selected').length == 0){
-		alert("マルチシグを変更したいアカウントを選択してください。");
-		return;
-	}
-
-	showMultisigMinValue();
-
-	$('#modal_mod_multisig').modal('show');
-}
-
 function showMultisigMinValue() {
 
 	valueMinRemoval.textContent = currentValueMinRemoval;
 	valueMinApproval.textContent = currentValueMinApproval;
 }
 
-//async function nodeFetchBySelectedAccount(infoType){
 async function getSelectedAccountInfoByNodeFetch(infoType){
 	const selectedAccount = $('#multisig_tree').jstree('get_selected')[0];
 	const res = await getAccountInfoByNodeFetch(sym.Address.createFromEncoded(selectedAccount).plain(),infoType)
