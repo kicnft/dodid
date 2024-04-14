@@ -28,8 +28,8 @@ canvas {
 </head>
 <body>
 <div class="container">
+	<b><span id="wallet_id"></span> WALLET</b>
 	<h1>DoDiD!</h1>
-	<br>
 	<b>Multisig Tree</b>
 	<button onclick="clickAddMultisig()">追加</button>
 	<button onclick="clickDelMultisig()">削除</button>
@@ -53,7 +53,8 @@ canvas {
 	<div id="signer_address"></div>
 	<div id="signer_address_plain"></div>
 	<button onclick="clickKey()">鍵情報</button>
-
+<hr>
+	<footer>KICN-FT</footer>
 </div><!-- container -->
 
 <!-- QRスキャンモーダル -->
@@ -347,6 +348,9 @@ if(network === "testnet"){
 let storageId = "dodid:";
 if(walletId){
 	storageId += walletId + ":";
+	document.getElementById("wallet_id").textContent = walletId;
+}else{
+	document.getElementById("wallet_id").textContent = "default";
 }
 
 
