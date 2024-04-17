@@ -353,7 +353,6 @@ if(walletId){
 	document.getElementById("wallet_id").textContent = "default";
 }
 
-
 const CONFIG_SYMBOL_APPLICATION = {
 	nodes:nodeSet,
 	selectNodeCount:3,  //同期確認のために接続するノード数
@@ -406,7 +405,6 @@ startSymbolApplication(
 	async function(event){
 
 		console.log(event);
-
 		let rawAddress;
 		if(event.data.publicKey){
 			rawAddress = sym.PublicAccount.createFromPublicKey(event.data.publicKey,networkType).address.plain();
@@ -444,11 +442,8 @@ startSymbolApplication(
 				$.toast({heading: 'Information',text: 'トランザクション通知',showHideTransition: 'plain',icon: 'info',});
 				console.log(signedAggregateTx);
 				clog(nodeUrl,signedAggregateTx);
-			}
-
-			if(event.data.meta.hash === announcedTxHash){
+			}else if(event.data.meta.hash === announcedTxHash || (txType === 16705 && event.data.meta.hash === signedAggregateTx.hash) ){
 				$('#transaction_tree').jstree(true).delete_node($('#transaction_tree').jstree(true));
-
 				$('#transaction_tree').jstree('delete_all');
 				$('#transaction_tree').jstree('refresh');
 				transactionList = new Array();
@@ -467,7 +462,8 @@ startSymbolApplication(
 			if(res){
 				$.toast({heading: 'Information',text: '連署処理中...',showHideTransition: 'plain',icon: 'info',hideAfter:false});
 			}
-		}else if(event.topic.includes("status/" 		 )){$.toast({heading: 'Error'	   ,text: event.data.code,				showHideTransition: 'plain',hideAfter: false,icon: 'error'});
+		}else if(event.topic.includes("status/")){
+			$.toast({heading: 'Error',text: event.data.code,showHideTransition: 'plain',hideAfter: false,icon: 'error'});
 		}
 	},
 	//onSocketResumed ソケット再起動時
@@ -547,30 +543,45 @@ async function clickModalAuth(){
 
 	if(authMode === "transaction"){
 
-		const aggregateTx = sym.AggregateTransaction.createBonded(
-			sym.Deadline.create(epochAdjustment),
-			transactionList,
-			networkType,
-			[],
-//			sym.UInt64.fromUint(100000)
-		).setMaxFeeForAggregate(100, maxCosignatureCount);
+		const signerCount  = new Set(transactionList.map(x=>x.signer.publicKey)).size;
+		if(signerCount === 1){
+			const aggregateTx = sym.AggregateTransaction.createComplete(
+				sym.Deadline.create(epochAdjustment),
+				transactionList,
+				networkType,
+				[],
+			).setMaxFeeForAggregate(100, maxCosignatureCount);
 
-		signedAggregateTx = signerAccount.sign(aggregateTx, generationHash);
-		const hashLockTx = sym.HashLockTransaction.create(
-			sym.Deadline.create(epochAdjustment),
-			new sym.Mosaic(new sym.MosaicId(currencyMosaicId), sym.UInt64.fromUint(10000000)),
-			sym.UInt64.fromUint(480), // 120 (1h) x 4
-			signedAggregateTx,
-			networkType,
-		).setMaxFee(100);
+			signedAggregateTx = signerAccount.sign(aggregateTx, generationHash);
 
-		const signedLockTx = signerAccount.sign(hashLockTx, generationHash);
-		nodeFetch(nodeUrl + "/transactions","PUT",{"payload": signedLockTx.payload});
-		clog(nodeUrl,signedLockTx);
+			nodeFetch(nodeUrl + "/transactions","PUT",{"payload": signedAggregateTx.payload});
+			clog(nodeUrl,signedAggregateTx);
+
+		}else{
+			const aggregateTx = sym.AggregateTransaction.createBonded(
+				sym.Deadline.create(epochAdjustment),
+				transactionList,
+				networkType,
+				[],
+			).setMaxFeeForAggregate(100, maxCosignatureCount);
+
+			signedAggregateTx = signerAccount.sign(aggregateTx, generationHash);
+			const hashLockTx = sym.HashLockTransaction.create(
+				sym.Deadline.create(epochAdjustment),
+				new sym.Mosaic(new sym.MosaicId(currencyMosaicId), sym.UInt64.fromUint(10000000)),
+				sym.UInt64.fromUint(480), // 120 (1h) x 4
+				signedAggregateTx,
+				networkType,
+			).setMaxFee(100);
+
+			const signedLockTx = signerAccount.sign(hashLockTx, generationHash);
+			nodeFetch(nodeUrl + "/transactions","PUT",{"payload": signedLockTx.payload});
+			clog(nodeUrl,signedLockTx);
+			
+		}
 
 	}else if(authMode === "cosign"){
 
-		//連署
 		announcedTxHash = cosignatureRequieredTxes[0].meta.hash;
 		const cosignedTx = sym.CosignatureTransaction.signTransactionHash(signerAccount,announcedTxHash)
 		const payload = {
@@ -599,7 +610,6 @@ async function clickModalAuth(){
 		await settingSignerAccount(signerPublicAccount);
 	}
 	delete signerAccount;
-
 }
 
 async function settingSignerAccount(publicAccount){
