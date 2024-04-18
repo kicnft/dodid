@@ -435,6 +435,8 @@ startSymbolApplication(
 		}else if(event.topic.includes("confirmedAdded/"  )){
 
 			txType = event.data.transaction.type;
+
+			//ハッシュロックトランザクションの場合はボンデッドトランザクションをアナウンス
 			if(txType === 16712){
 
 				nodeFetch(nodeUrl + "/transactions/partial","PUT",{"payload": signedAggregateTx.payload});
@@ -442,7 +444,10 @@ startSymbolApplication(
 				$.toast({heading: 'Information',text: 'トランザクション通知',showHideTransition: 'plain',icon: 'info',});
 				console.log(signedAggregateTx);
 				clog(nodeUrl,signedAggregateTx);
-			}else if(event.data.meta.hash === announcedTxHash || (txType === 16705 && event.data.meta.hash === signedAggregateTx.hash) ){
+
+			//ボンデッドトランザクションアナウンス時に指定したハッシュ値と一致する、あるいはコンプリートトランザクションの署名時ハッシュ値と一致する。
+//			}else if(event.data.meta.hash === announcedTxHash || (txType === 16705 && event.data.meta.hash === signedAggregateTx.hash) ){
+			}else if(event.data.meta.hash === announcedTxHash || event.data.meta.hash === signedAggregateTx.hash ){
 				$('#transaction_tree').jstree(true).delete_node($('#transaction_tree').jstree(true));
 				$('#transaction_tree').jstree('delete_all');
 				$('#transaction_tree').jstree('refresh');
@@ -542,9 +547,10 @@ async function clickModalAuth(){
 	delete signerQR;
 
 	if(authMode === "transaction"){
+		const signerSet = new Set(transactionList.map(x=>x.signer.publicKey));
 
-		const signerCount  = new Set(transactionList.map(x=>x.signer.publicKey)).size;
-		if(signerCount === 1){
+		//署名者が1人で秘密鍵を保持しているアカウントの場合はコンプリートトランザクション
+		if(signerSet.size === 1 && signerSet.has(signerAccount.publicKey)){
 			const aggregateTx = sym.AggregateTransaction.createComplete(
 				sym.Deadline.create(epochAdjustment),
 				transactionList,
@@ -553,10 +559,10 @@ async function clickModalAuth(){
 			).setMaxFeeForAggregate(100, maxCosignatureCount);
 
 			signedAggregateTx = signerAccount.sign(aggregateTx, generationHash);
-
 			nodeFetch(nodeUrl + "/transactions","PUT",{"payload": signedAggregateTx.payload});
 			clog(nodeUrl,signedAggregateTx);
 
+		//それ以外はボンデッドトランザクション作成＆ハッシュロックアナウンス
 		}else{
 			const aggregateTx = sym.AggregateTransaction.createBonded(
 				sym.Deadline.create(epochAdjustment),
@@ -577,7 +583,6 @@ async function clickModalAuth(){
 			const signedLockTx = signerAccount.sign(hashLockTx, generationHash);
 			nodeFetch(nodeUrl + "/transactions","PUT",{"payload": signedLockTx.payload});
 			clog(nodeUrl,signedLockTx);
-			
 		}
 
 	}else if(authMode === "cosign"){
