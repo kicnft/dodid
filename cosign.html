@@ -86,7 +86,7 @@
       <input id="privateKey" type="password" inputmode="text" autocomplete="off" spellcheck="false" placeholder="64文字の16進数">
     </label>
     <div id="account" class="state">連署に使う秘密鍵を入力してください。</div>
-    <button id="load" class="primary-action">Bonded を検索</button>
+    <button id="load" class="primary-action" data-requires-node disabled>Bonded を検索</button>
   </section>
 
   <section id="bondedPanel" class="panel hidden">
@@ -102,8 +102,8 @@
       <textarea id="payload" spellcheck="false" placeholder="署名済み payload（16進数）を貼り付け"></textarea>
     </label>
     <div class="row">
-      <button id="inspectPayload" class="secondary">内容を確認</button>
-      <button id="cosignComplete">連署して送信</button>
+      <button id="inspectPayload" class="secondary" data-requires-node disabled>内容を確認</button>
+      <button id="cosignComplete" data-requires-node disabled>連署して送信</button>
     </div>
     <div id="payloadInfo"></div>
   </section>
@@ -123,13 +123,35 @@
 </script>
 <script type="module">
   const $ = id => document.getElementById(id);
-  let bundle, core, sym, facade, models, utils, account, epochAdjustment = 0, mode = "bonded";
+  let bundle, core, sym, facade, models, utils, account, epochAdjustment = 0, mode = "bonded", nodeReady = false;
   let selectedNodeUrl = "", nodeConnectionPromise = null, brokerEventsBound = false;
   const topicCallbacks = new Map();
   const NODE_CANDIDATES = window.COSIGN_NODE_CANDIDATES ?? [];
   const NODE_SELECTOR_OPTIONS = { selectCount:5, minConsensus:3, timeoutMs:6000, retry:2, retryStrategy:"resample" };
   const log = text => { $("log").textContent = `${new Date().toLocaleTimeString()}  ${text}\n` + $("log").textContent; };
   const setStatus = (text, kind="") => { const el=$("status"); el.textContent=text; el.className=`state ${kind}`; };
+  const syncNodeRequiredControls = () => document.querySelectorAll("[data-requires-node]").forEach(button=>{
+    button.disabled=!nodeReady || button.dataset.busy==="true";
+    button.title=nodeReady ? "" : "SymbolノードとのWebSocket接続を待っています";
+  });
+  const setNodeReady = ready => { nodeReady=ready; syncNodeRequiredControls(); };
+  const brokerIsReady = () => {
+    const state=window.WSBroker?.getState();
+    return state?.readyState===WebSocket.OPEN && Boolean(state.currentUid);
+  };
+  const waitForBrokerReady = (timeoutMs=8000) => {
+    if(brokerIsReady()) return Promise.resolve();
+    return new Promise((resolve,reject)=>{
+      const finish=error=>{
+        clearTimeout(timer);
+        WSBroker.off("statechange",onStateChange);
+        error ? reject(error) : resolve();
+      };
+      const onStateChange=()=>{ if(brokerIsReady()) finish(); };
+      const timer=setTimeout(()=>finish(new Error("WebSocketの購読セッションを確立できませんでした。")),timeoutMs);
+      WSBroker.on("statechange",onStateChange);
+    });
+  };
   const nodeUrl = () => window.WSBroker?.getState().currentNodeUrl || selectedNodeUrl;
   const setSelectedNode = url => {
     selectedNodeUrl=window.NodeSelector.normalizeNodeUrl(url);
@@ -176,30 +198,39 @@
   function bindBrokerEvents() {
     if(brokerEventsBound) return;
     brokerEventsBound=true;
+    WSBroker.on("statechange",()=>setNodeReady(brokerIsReady()));
     WSBroker.on("open", info=>{
       setSelectedNode(info.nodeUrl);
+      setNodeReady(false);
       log(`WebSocket接続: ${info.nodeUrl}`);
     });
     WSBroker.on("nodechange", info=>{
+      setNodeReady(brokerIsReady());
       setSelectedNode(info.to);
       setStatus(`接続ノードを切り替えました: ${info.to}`,"warn");
       log(`NODE CHANGED ${info.from} -> ${info.to}`);
     });
     WSBroker.on("reconnect", info=>{
+      setNodeReady(false);
       setStatus("WebSocket再接続中…","warn");
       log(`WebSocket再接続: ${info.failedNodeUrl}`);
     });
     WSBroker.on("resumed", info=>{
       setSelectedNode(info.nodeUrl);
+      setNodeReady(true);
       log(`WebSocket購読再開: ${info.nodeUrl}`);
     });
-    WSBroker.on("error", info=>log(`WebSocket ERROR: ${info.nodeUrl ?? "unknown"}`));
+    WSBroker.on("error", info=>{
+      setNodeReady(brokerIsReady());
+      log(`WebSocket ERROR: ${info.nodeUrl ?? "unknown"}`);
+    });
   }
 
   async function selectAndConnectNode(force=false) {
     if(!window.NodeSelector || !window.WSBroker) throw new Error("NodeSelector または WSBroker を読み込めませんでした。");
     if(!NODE_CANDIDATES.length) throw new Error("接続候補ノードがありません。");
     bindBrokerEvents();
+    setNodeReady(false);
     setStatus("同期しているSymbolノードを選択中…","warn");
 
     let nextNode="";
@@ -218,13 +249,15 @@
       });
     }
     setSelectedNode(WSBroker.getState().currentNodeUrl || nextNode);
+    await waitForBrokerReady();
+    setNodeReady(true);
     setStatus(`接続しました: ${nodeUrl()}`,"good");
     return nodeUrl();
   }
 
   async function ensureNodeConnection() {
     const state=window.WSBroker?.getState();
-    if(selectedNodeUrl && state?.readyState===WebSocket.OPEN) return selectedNodeUrl;
+    if(selectedNodeUrl && state?.readyState===WebSocket.OPEN && state.currentUid) return selectedNodeUrl;
     if(!nodeConnectionPromise) {
       nodeConnectionPromise=selectAndConnectNode(false).finally(()=>{nodeConnectionPromise=null;});
     }
@@ -414,7 +447,7 @@
     const aggregateName=typeName(tx.type);
     const badgeName=aggregateName.includes("Complete") ? "Complete" : "Bonded";
     const wrap=document.createElement("article"); wrap.className="tx";
-    wrap.innerHTML=`<header><span><span class="badge ${badgeName==="Bonded" ? "pending" : ""}">${badgeName}</span> ${esc(short(hash))}</span>${action ? "<button>この Bonded に連署</button>" : ""}</header>
+    wrap.innerHTML=`<header><span><span class="badge ${badgeName==="Bonded" ? "pending" : ""}">${badgeName}</span> ${esc(short(hash))}</span>${action ? "<button data-requires-node>この Bonded に連署</button>" : ""}</header>
       <div class="table-wrap"><table><tbody>
         <tr><th>hash</th><td class="hash">${esc(hash)}</td></tr>
         <tr><th>Aggregate種別</th><td>${esc(aggregateName)}</td></tr>
@@ -423,7 +456,11 @@
         <tr><th>有効期限</th><td>${esc(deadline(tx.deadline))}</td></tr>
         <tr><th>現在の連署数</th><td>${esc(tx.cosignatures?.length ?? 0)}</td></tr>
       </tbody></table></div>${renderSignatureSummary(requirements)}<div class="inner-list">${rows.map(row=>renderInnerCard(row,requirements)).join("") || '<span class="empty">embedded transaction がありません</span>'}</div>`;
-    if(action) wrap.querySelector("button").onclick=event=>runButtonAction(event.currentTarget,action);
+    if(action) {
+      const actionButton=wrap.querySelector("button");
+      actionButton.disabled=!nodeReady;
+      actionButton.onclick=event=>runButtonAction(event.currentTarget,action);
+    }
     return wrap;
   }
   async function subscribe(topic, callback) {
@@ -475,10 +512,10 @@
     if(mode==="complete") {
       $("bondedPanel").classList.add("hidden");
       $("completePanel").classList.remove("hidden");
-      setStatus("Complete payload を入力して内容を確認してください。");
+      setStatus(nodeReady ? "Complete payload を入力して内容を確認してください。" : "WebSocket接続を待っています。入力は先に行えます。",nodeReady ? "" : "warn");
     } else {
       $("completePanel").classList.add("hidden");
-      setStatus("秘密鍵を入力して Bonded を検索してください。");
+      setStatus(nodeReady ? "秘密鍵を入力して Bonded を検索してください。" : "WebSocket接続を待っています。秘密鍵は先に入力できます。",nodeReady ? "" : "warn");
     }
   }
   function parsePayload() {
@@ -505,11 +542,17 @@
   function showError(error) { console.error(error); setStatus(error.message ?? String(error),"error"); log(`ERROR ${error.message ?? error}`); }
   async function runButtonAction(button,action) {
     if(button.disabled) return;
+    button.dataset.busy="true";
     button.disabled=true;
     button.classList.add("busy");
     try { await action(); }
     catch(error) { showError(error); }
-    finally { button.classList.remove("busy"); button.disabled=false; }
+    finally {
+      button.classList.remove("busy");
+      delete button.dataset.busy;
+      if(button.matches("[data-requires-node]")) syncNodeRequiredControls();
+      else button.disabled=false;
+    }
   }
   $("load").onclick=event=>runButtonAction(event.currentTarget,loadBonded);
   $("selectNode").onclick=event=>runButtonAction(event.currentTarget,()=>selectAndConnectNode(true));
