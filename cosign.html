@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Symbol Cosign</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23111c35'/%3E%3Cpath d='M16 17h32L20 47h28' fill='none' stroke='%235de4c1' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <style>
+    :root { --bg:#0b1020; --panel:#131d33; --line:#2b3b5e; --ink:#f2f6ff; --muted:#aab7d2; --accent:#5de4c1; --warn:#ffc369; --danger:#ff7a96; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:linear-gradient(145deg,#101b37,#080c18 60%); color:var(--ink); font:16px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif; min-height:100vh; }
+    main { width:min(980px,100%); margin:auto; padding:24px 16px 48px; }
+    h1 { font-size:1.55rem; margin:0 0 4px; } h2 { font-size:1.08rem; margin:0 0 12px; }
+    .sub, .note { color:var(--muted); margin:0; font-size:.9rem; }
+    .panel { background:rgba(19,29,51,.96); border:1px solid var(--line); border-radius:14px; margin-top:16px; padding:16px; box-shadow:0 12px 28px #0003; }
+    label { display:block; color:var(--muted); font-size:.86rem; margin:12px 0 5px; }
+    input, textarea { width:100%; color:var(--ink); background:#090f20; border:1px solid var(--line); border-radius:9px; padding:11px; font:inherit; }
+    input[readonly] { color:var(--accent); }
+    textarea { min-height:152px; resize:vertical; word-break:break-all; }
+    button { appearance:none; border:0; border-radius:9px; padding:10px 14px; font:inherit; font-weight:700; background:var(--accent); color:#08211d; cursor:pointer; }
+    button.secondary { color:var(--ink); background:#273958; } button:disabled { opacity:.45; cursor:not-allowed; }
+    .row { display:flex; gap:10px; align-items:end; flex-wrap:wrap; } .row > label { flex:1 1 300px; margin:0; } .row button { min-height:43px; }
+    .primary-action { width:100%; margin-top:12px; }
+    .mode { display:flex; gap:8px; margin:14px 0 2px; } .mode button { flex:1; color:var(--muted); background:#273958; } .mode button.active { color:#08211d; background:var(--accent); }
+    .state { margin-top:12px; padding:10px 12px; border-radius:9px; background:#0a1225; color:var(--muted); } .state.good { color:var(--accent); } .state.warn { color:var(--warn); } .state.error { color:var(--danger); }
+    .hidden { display:none; }
+    .tx { border:1px solid var(--line); border-radius:11px; overflow:hidden; margin:12px 0; }
+    .tx header { padding:11px 12px; background:#0c1529; display:flex; gap:8px; justify-content:space-between; align-items:center; flex-wrap:wrap; }
+    .hash { font:ui-monospace,SFMono-Regular,Consolas,monospace; font-size:.78rem; overflow-wrap:anywhere; color:#cbd8f5; }
+    .table-wrap { overflow-x:auto; } table { border-collapse:collapse; width:100%; min-width:560px; font-size:.86rem; } th,td { padding:9px 10px; border-top:1px solid var(--line); text-align:left; vertical-align:top; } th { color:var(--muted); font-weight:600; white-space:nowrap; } td { overflow-wrap:anywhere; }
+    .log { font:ui-monospace,SFMono-Regular,Consolas,monospace; font-size:.78rem; white-space:pre-wrap; max-height:210px; overflow:auto; background:#080d1a; padding:12px; border-radius:9px; }
+    .badge { font-size:.75rem; padding:2px 7px; border-radius:99px; background:#254a47; color:var(--accent); } .badge.pending { background:#57432a; color:var(--warn); }
+    @media (max-width:600px) { main{padding:18px 10px 32px}.panel{padding:13px}.row button{width:100%} table{min-width:0} thead{display:none} tr,td{display:block;width:100%} td{padding:5px 10px;border:0} td::before{content:attr(data-label);display:block;color:var(--muted);font-size:.72rem} tr{border-top:1px solid var(--line);padding:5px 0} }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Symbol Cosign</h1>
+  <p class="sub">対象に合わせて Bonded の検索または Aggregate Complete の連署を選びます。</p>
+
+  <section class="panel">
+    <div class="row">
+      <label>接続中のSymbolノード
+        <input id="node" value="自動選択します" readonly aria-live="polite">
+      </label>
+      <button id="selectNode" class="secondary">ノードを再選択</button>
+    </div>
+    <div class="mode" role="group" aria-label="連署の種類">
+      <button id="modeBonded" class="active">Bonded を探して連署</button>
+      <button id="modeComplete">Complete payload に連署</button>
+    </div>
+    <label>秘密鍵（この画面のメモリ内だけで使用。保存・送信しません）
+      <input id="privateKey" type="password" inputmode="text" autocomplete="off" spellcheck="false" placeholder="64文字の16進数">
+    </label>
+    <div id="account" class="state">連署に使う秘密鍵を入力してください。</div>
+    <button id="load" class="primary-action">Bonded を検索</button>
+  </section>
+
+  <section id="bondedPanel" class="panel hidden">
+    <h2>署名待ち Bonded</h2>
+    <p class="note">内容を確認してから「この Bonded に連署」を押してください。</p>
+    <div id="bondedList"></div>
+  </section>
+
+  <section id="completePanel" class="panel hidden">
+    <h2>Aggregate Complete の連署</h2>
+    <p class="note">署名済み payload を貼り付け、内容を確認してから連署します。</p>
+    <label>署名済み Aggregate Complete payload
+      <textarea id="payload" spellcheck="false" placeholder="署名済み payload（16進数）を貼り付け"></textarea>
+    </label>
+    <div class="row">
+      <button id="inspectPayload" class="secondary">内容を確認</button>
+      <button id="cosignComplete">連署して送信</button>
+    </div>
+    <div id="payloadInfo"></div>
+  </section>
+
+  <section class="panel">
+    <h2>通信ログ</h2>
+    <div id="status" class="state">待機中</div>
+    <pre id="log" class="log"></pre>
+  </section>
+</main>
+
+<script src="./config.js"></script>
+<script src="./node-selector.js"></script>
+<script src="./ws-broker.js"></script>
+<script>
+  window.COSIGN_NODE_CANDIDATES = [...new Set(configSymbolApplication.nodes)];
+</script>
+<script type="module">
+  const $ = id => document.getElementById(id);
+  let bundle, core, sym, facade, models, utils, account, epochAdjustment = 0, mode = "bonded";
+  let selectedNodeUrl = "", nodeConnectionPromise = null, brokerEventsBound = false;
+  const topicCallbacks = new Map();
+  const NODE_CANDIDATES = window.COSIGN_NODE_CANDIDATES ?? [];
+  const NODE_SELECTOR_OPTIONS = { selectCount:5, minConsensus:3, timeoutMs:6000, retry:2, retryStrategy:"resample" };
+  const log = text => { $("log").textContent = `${new Date().toLocaleTimeString()}  ${text}\n` + $("log").textContent; };
+  const setStatus = (text, kind="") => { const el=$("status"); el.textContent=text; el.className=`state ${kind}`; };
+  const nodeUrl = () => window.WSBroker?.getState().currentNodeUrl || selectedNodeUrl;
+  const setSelectedNode = url => {
+    selectedNodeUrl=window.NodeSelector.normalizeNodeUrl(url);
+    $("node").value=selectedNodeUrl || "未接続";
+  };
+  const fetchApi = async (base, path, method, body) => {
+    const response = await fetch(base+path, { method, headers:{"Content-Type":"application/json"}, body: body ? JSON.stringify(body) : undefined });
+    if (!response.ok) {
+      const error=new Error(`${response.status} ${response.statusText}: ${await response.text()}`);
+      error.status=response.status;
+      throw error;
+    }
+    return response.json();
+  };
+  const api = async (path, method="GET", body) => {
+    await ensureNodeConnection();
+    const firstNode=nodeUrl();
+    try { return await fetchApi(firstNode,path,method,body); }
+    catch(error) {
+      if(method!=="GET" || (error.status && error.status < 500)) throw error;
+      log(`REST接続失敗: ${firstNode} — 別ノードを選択します`);
+      await selectAndConnectNode(true);
+      return fetchApi(nodeUrl(),path,method,body);
+    }
+  };
+  const hex = value => String(value ?? "").toUpperCase();
+  const asPublicKey = value => typeof value === "string" ? new core.PublicKey(value) : value;
+  const address = publicKey => facade.network.publicKeyToAddress(asPublicKey(publicKey)).toString();
+  const short = value => value ? `${value.slice(0,10)}…${value.slice(-8)}` : "—";
+  const esc = value => String(value ?? "").replace(/[&<>"']/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[char]));
+  const integer = value => { try { return BigInt(String(value)); } catch { return 0n; } };
+  const xym = value => `${(Number(integer(value)) / 1_000_000).toLocaleString("ja-JP", {maximumFractionDigits:6})} XYM (${integer(value).toLocaleString()} microXYM)`;
+  const deadline = value => {
+    const seconds=Number(integer(value));
+    return seconds ? new Date((epochAdjustment + seconds) * 1000).toLocaleString("ja-JP") : "—";
+  };
+  const printableAddress = value => {
+    const text=String(value ?? "");
+    if(!/^[0-9a-fA-F]{48}$/.test(text)) return text || "—";
+    try { return sym.Address.fromDecodedAddressHexString(text).toString(); }
+    catch { return text; }
+  };
+
+  function bindBrokerEvents() {
+    if(brokerEventsBound) return;
+    brokerEventsBound=true;
+    WSBroker.on("open", info=>{
+      setSelectedNode(info.nodeUrl);
+      log(`WebSocket接続: ${info.nodeUrl}`);
+    });
+    WSBroker.on("nodechange", info=>{
+      setSelectedNode(info.to);
+      setStatus(`接続ノードを切り替えました: ${info.to}`,"warn");
+      log(`NODE CHANGED ${info.from} -> ${info.to}`);
+    });
+    WSBroker.on("reconnect", info=>{
+      setStatus("WebSocket再接続中…","warn");
+      log(`WebSocket再接続: ${info.failedNodeUrl}`);
+    });
+    WSBroker.on("resumed", info=>{
+      setSelectedNode(info.nodeUrl);
+      log(`WebSocket購読再開: ${info.nodeUrl}`);
+    });
+    WSBroker.on("error", info=>log(`WebSocket ERROR: ${info.nodeUrl ?? "unknown"}`));
+  }
+
+  async function selectAndConnectNode(force=false) {
+    if(!window.NodeSelector || !window.WSBroker) throw new Error("NodeSelector または WSBroker を読み込めませんでした。");
+    if(!NODE_CANDIDATES.length) throw new Error("接続候補ノードがありません。");
+    bindBrokerEvents();
+    setStatus("同期しているSymbolノードを選択中…","warn");
+
+    let nextNode="";
+    if(force && WSBroker.getState().currentNodeUrl) {
+      const refreshed=await WSBroker.refreshNodeSelection();
+      nextNode=refreshed.nodeUrl;
+    } else {
+      const result=await NodeSelector.selectBestNodeWithRetry(NODE_CANDIDATES,NODE_SELECTOR_OPTIONS);
+      if(!result?.selected?.nodeUrl) throw new Error("利用可能なSymbolノードが見つかりませんでした。");
+      nextNode=result.selected.nodeUrl;
+      await WSBroker.connect({
+        nodeUrl:nextNode,
+        nodeCandidates:NODE_CANDIDATES,
+        nodeSelectorOptions:NODE_SELECTOR_OPTIONS,
+        config:{openTimeoutMs:6000,reconnectDelayMs:500,reconnectDelayMaxMs:16000,visibilityReconnect:true,debug:false}
+      });
+    }
+    setSelectedNode(WSBroker.getState().currentNodeUrl || nextNode);
+    setStatus(`接続しました: ${nodeUrl()}`,"good");
+    return nodeUrl();
+  }
+
+  async function ensureNodeConnection() {
+    const state=window.WSBroker?.getState();
+    if(selectedNodeUrl && state?.readyState===WebSocket.OPEN) return selectedNodeUrl;
+    if(!nodeConnectionPromise) {
+      nodeConnectionPromise=selectAndConnectNode(false).finally(()=>{nodeConnectionPromise=null;});
+    }
+    return nodeConnectionPromise;
+  }
+
+  async function init() {
+    if (!bundle) {
+      setStatus("SDKを読み込み中…");
+      bundle = await import("https://www.unpkg.com/symbol-sdk@3.3.0/dist/bundle.web.js");
+      core=bundle.core; sym=bundle.symbol; models=sym.models; utils=core.utils;
+    }
+    await ensureNodeConnection();
+    const props = await api("/network/properties");
+    facade = new sym.SymbolFacade(props.network.identifier);
+    epochAdjustment=Number(String(props.network.epochAdjustment ?? "0").replace("s", ""));
+  }
+  function createAccount() {
+    const key=$("privateKey").value.trim();
+    if (!/^[0-9a-fA-F]{64}$/.test(key)) throw new Error("秘密鍵は64文字の16進数で入力してください。");
+    account=facade.createAccount(new core.PrivateKey(key));
+    $("account").textContent=`署名アカウント: ${account.address.toString()}  /  公開鍵: ${account.publicKey.toString()}`;
+    $("account").className="state good";
+  }
+  const typeKey = type => String(type ?? "").replace(/^TransactionType\./, "").toUpperCase();
+  const typeName = type => ({
+    "16724":"Transfer", "TRANSFER":"Transfer",
+    "16725":"Multisig Account Modification", "MULTISIG_ACCOUNT_MODIFICATION":"Multisig Account Modification",
+    "16717":"Address Alias", "ADDRESS_ALIAS":"Address Alias", "16973":"Mosaic Alias", "MOSAIC_ALIAS":"Mosaic Alias",
+    "16708":"Namespace Registration", "NAMESPACE_REGISTRATION":"Namespace Registration",
+    "16705":"Aggregate Complete", "AGGREGATE_COMPLETE":"Aggregate Complete",
+    "16961":"Aggregate Bonded", "AGGREGATE_BONDED":"Aggregate Bonded",
+  })[typeKey(type)] ?? `Type ${type ?? "—"}`;
+  const innerDetail = tx => {
+    const type=typeKey(tx.type);
+    if(type==="16724" || type==="TRANSFER") {
+      const mosaics=(tx.mosaics??[]).map(m=>`${m.id}: ${m.amount}`).join(" / ") || "なし";
+      return `送金先: ${printableAddress(tx.recipientAddress)}　モザイク: ${mosaics}　メッセージ: ${tx.message ?? "なし"}`;
+    }
+    if(type==="16725" || type==="MULTISIG_ACCOUNT_MODIFICATION") return `承認数の変更: ${(tx.minApprovalDelta ?? 0) >= 0 ? "+" : ""}${tx.minApprovalDelta ?? 0}　削除承認数の変更: ${(tx.minRemovalDelta ?? 0) >= 0 ? "+" : ""}${tx.minRemovalDelta ?? 0}　連署者を追加: ${(tx.addressAdditions??[]).map(printableAddress).join(", ") || "なし"}　連署者を削除: ${(tx.addressDeletions??[]).map(printableAddress).join(", ") || "なし"}`;
+    return "詳細は取引種別により異なります";
+  };
+  function txRows(tx) {
+    return (tx.transactions ?? []).map((item, index) => {
+      const inner=item.transaction ?? item;
+      return {
+      no:index+1,
+      type: typeName(inner.type),
+      signer: inner.signerPublicKey ? address(inner.signerPublicKey) : "—",
+      detail: innerDetail(inner),
+      };
+    });
+  }
+  async function multisigRequirements(detail) {
+    const signers=[...new Set(txRows(detail.transaction ?? detail).map(row=>row.signer).filter(signer=>signer!=="—"))];
+    const entries=await Promise.all(signers.map(async signer=>{
+      try {
+        const multisig=(await api(`/account/${signer}/multisig`)).multisig;
+        const required=Number(multisig.minApproval ?? 0);
+        return [signer.toUpperCase(), required > 0 ? `${required}-of-${multisig.cosignatoryAddresses?.length ?? 0}` : "単独署名"];
+      } catch { return [signer.toUpperCase(),"取得不可"]; }
+    }));
+    return new Map(entries);
+  }
+  function transactionCard(detail, action, requirements=new Map()) {
+    const tx=detail.transaction ?? detail;
+    const hash=detail.meta?.hash ?? detail.hash ?? "";
+    const rows=txRows(tx);
+    const wrap=document.createElement("article"); wrap.className="tx";
+    wrap.innerHTML=`<header><span><span class="badge pending">Bonded</span> ${esc(short(hash))}</span><button>この Bonded に連署</button></header>
+      <div class="table-wrap"><table><tbody>
+        <tr><th>hash</th><td class="hash">${esc(hash)}</td></tr>
+        <tr><th>Aggregate種別</th><td>${esc(typeName(tx.type))}</td></tr>
+        <tr><th>起案者</th><td>${esc(tx.signerPublicKey ? address(tx.signerPublicKey) : "—")}</td></tr>
+        <tr><th>最大手数料</th><td>${esc(xym(tx.maxFee ?? tx.fee))}</td></tr>
+        <tr><th>有効期限</th><td>${esc(deadline(tx.deadline))}</td></tr>
+        <tr><th>現在の連署数</th><td>${esc(tx.cosignatures?.length ?? 0)}</td></tr>
+      </tbody></table></div>
+      <div class="table-wrap"><table><thead><tr><th>#</th><th>取引種別</th><th>署名者</th><th>署名要件</th><th>内容</th></tr></thead><tbody>${rows.map(r=>`<tr><td data-label="#">${esc(r.no)}</td><td data-label="取引種別">${esc(r.type)}</td><td data-label="署名者">${esc(r.signer)}</td><td data-label="署名要件">${esc(requirements.get(r.signer.toUpperCase()) ?? "—")}</td><td data-label="内容">${esc(r.detail)}</td></tr>`).join("") || "<tr><td>embedded transaction がありません</td></tr>"}</tbody></table></div>`;
+    wrap.querySelector("button").onclick=action; return wrap;
+  }
+  async function subscribe(topic, callback) {
+    await ensureNodeConnection();
+    if(!topicCallbacks.has(topic)) {
+      const callbacks=new Set();
+      topicCallbacks.set(topic,callbacks);
+      WSBroker.on(topic,data=>callbacks.forEach(fn=>fn(data)));
+      WSBroker.subscribe(topic);
+    }
+    topicCallbacks.get(topic).add(callback);
+  }
+  async function watch(hash, outerAddress) {
+    await subscribe(`unconfirmedAdded/${outerAddress}`, data=>{ if(hex(data.meta?.hash)===hex(hash)){setStatus(`UNCONFIRMED: ${hash}`,"warn");log(`UNCONFIRMED ${hash}`);} });
+    await subscribe(`confirmedAdded/${outerAddress}`, data=>{ if(hex(data.meta?.hash)===hex(hash)){setStatus(`CONFIRMED: ${hash}`,"good");log(`CONFIRMED ${hash}`);} });
+    for (const addr of [outerAddress,account.address.toString()]) await subscribe(`status/${addr}`, data=>{ if(hex(data.hash)===hex(hash)){setStatus(`ERROR: ${data.code ?? "status"}`,"error");log(`ERROR ${JSON.stringify(data)}`);} });
+  }
+  async function detachedCosign(detail) {
+    const hash=detail.meta.hash, outerAddress=address(detail.transaction.signerPublicKey);
+    await watch(hash,outerAddress);
+    const cosig=sym.SymbolFacade.cosignTransactionHash(account.keyPair,new core.Hash256(hash),true);
+    const response=await api("/transactions/cosignature","PUT",{parentHash:cosig.parentHash.toString(),signature:cosig.signature.toString(),signerPublicKey:cosig.signerPublicKey.toString(),version:cosig.version.toString()});
+    setStatus("COSIGNATURE ANNOUNCED — ブロック確定を待機中", "warn"); log(JSON.stringify(response));
+  }
+  async function loadBonded() {
+    await init(); createAccount(); setStatus("Bondedを検索中…");
+    const params=new URLSearchParams({address:account.address.toString(),pageSize:"100",pageNumber:"1"});
+    const data=(await api(`/transactions/partial?${params}`)).data ?? [];
+    const details=[];
+    for(const item of data) { try { details.push(await api(`/transactions/partial/${item.meta.hash}`)); } catch { /* confirmed/expired */ } }
+    const list=$("bondedList"); list.replaceChildren();
+    if(details.length) {
+      $("bondedPanel").classList.remove("hidden"); $("completePanel").classList.add("hidden");
+      for (const detail of details) {
+        const requirements=await multisigRequirements(detail);
+        list.append(transactionCard(detail,()=>detachedCosign(detail).catch(showError),requirements));
+      }
+      setStatus(`${details.length} 件のBondedが見つかりました。内容を確認してください。`,"warn");
+    } else {
+      $("bondedPanel").classList.add("hidden"); $("completePanel").classList.add("hidden");
+      setStatus("署名待ちBondedはありません。","good");
+    }
+  }
+  function selectMode(nextMode) {
+    mode=nextMode;
+    $("modeBonded").classList.toggle("active", mode==="bonded");
+    $("modeComplete").classList.toggle("active", mode==="complete");
+    $("load").classList.toggle("hidden", mode!=="bonded");
+    if(mode==="complete") {
+      $("bondedPanel").classList.add("hidden");
+      $("completePanel").classList.remove("hidden");
+      setStatus("Complete payload を入力して内容を確認してください。");
+    } else {
+      $("completePanel").classList.add("hidden");
+      setStatus("秘密鍵を入力して Bonded を検索してください。");
+    }
+  }
+  function parsePayload() {
+    const payload=$("payload").value.trim(); if(!payload) throw new Error("payloadを入力してください。");
+    const tx=sym.SymbolTransactionFactory.deserialize(utils.hexToUint8(payload));
+    if(!Array.isArray(tx.transactions)) throw new Error("Aggregate transaction payloadではありません。");
+    return {payload,tx,hash:facade.hashTransaction(tx).toString()};
+  }
+  function showPayload(tx,hash) { $("payloadInfo").replaceChildren(transactionCard({meta:{hash},transaction:tx},()=>{})); $("payloadInfo").querySelector("button").remove(); }
+  async function inspectPayload() { await init(); createAccount(); const {tx,hash}=parsePayload(); showPayload(tx,hash); setStatus(`payload hash: ${hash}`,"good"); }
+  async function cosignComplete() {
+    await init(); createAccount(); const {payload,tx,hash}=parsePayload();
+    if((tx.cosignatures??[]).some(c=>hex(c.signerPublicKey)===hex(account.publicKey))) throw new Error("このアカウントはすでに連署済みです。");
+    tx.cosignatures.push(account.cosignTransaction(tx));
+    const request=JSON.parse(sym.SymbolTransactionFactory.attachSignature(tx,tx.signature));
+    await watch(hash,address(tx.signerPublicKey));
+    const response=await api("/transactions","PUT",{payload:request.payload});
+    setStatus("COMPLETE ANNOUNCED — ブロック確定を待機中", "warn"); log(JSON.stringify(response));
+  }
+  function showError(error) { console.error(error); setStatus(error.message ?? String(error),"error"); log(`ERROR ${error.message ?? error}`); }
+  $("load").onclick=()=>loadBonded().catch(showError);
+  $("selectNode").onclick=()=>selectAndConnectNode(true).catch(showError);
+  $("modeBonded").onclick=()=>selectMode("bonded");
+  $("modeComplete").onclick=()=>selectMode("complete");
+  $("inspectPayload").onclick=()=>inspectPayload().catch(showError);
+  $("cosignComplete").onclick=()=>cosignComplete().catch(showError);
+  ensureNodeConnection().catch(showError);
+</script>
+</body>
+</html>
