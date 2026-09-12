@@ -18,8 +18,15 @@
     input, textarea { width:100%; color:var(--ink); background:#090f20; border:1px solid var(--line); border-radius:9px; padding:11px; font:inherit; }
     input[readonly] { color:var(--accent); }
     textarea { min-height:152px; resize:vertical; word-break:break-all; }
-    button { appearance:none; border:0; border-radius:9px; padding:10px 14px; font:inherit; font-weight:700; background:var(--accent); color:#08211d; cursor:pointer; }
-    button.secondary { color:var(--ink); background:#273958; } button:disabled { opacity:.45; cursor:not-allowed; }
+    button { appearance:none; border:0; border-radius:9px; padding:10px 14px; font:inherit; font-weight:700; background:var(--accent); color:#08211d; cursor:pointer; box-shadow:0 4px 0 #0009,0 8px 18px #0004; transform:translateY(0); transition:transform .08s ease,box-shadow .08s ease,filter .15s ease; touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
+    button:hover:not(:disabled) { filter:brightness(1.08); }
+    button:active:not(:disabled) { transform:translateY(3px); box-shadow:0 1px 0 #0009,0 3px 8px #0004; }
+    button:focus-visible { outline:3px solid #ffffffaa; outline-offset:3px; }
+    button.secondary { color:var(--ink); background:#273958; }
+    button:disabled { opacity:.45; cursor:not-allowed; transform:none; }
+    button.busy:disabled { opacity:.78; cursor:wait; }
+    button.busy::after { content:""; display:inline-block; width:.8em; height:.8em; margin-left:8px; border:2px solid currentColor; border-right-color:transparent; border-radius:50%; vertical-align:-.08em; animation:spin .7s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
     .row { display:flex; gap:10px; align-items:end; flex-wrap:wrap; } .row > label { flex:1 1 300px; margin:0; } .row button { min-height:43px; }
     .primary-action { width:100%; margin-top:12px; }
     .mode { display:flex; gap:8px; margin:14px 0 2px; } .mode button { flex:1; color:var(--muted); background:#273958; } .mode button.active { color:#08211d; background:var(--accent); }
@@ -29,9 +36,34 @@
     .tx header { padding:11px 12px; background:#0c1529; display:flex; gap:8px; justify-content:space-between; align-items:center; flex-wrap:wrap; }
     .hash { font:ui-monospace,SFMono-Regular,Consolas,monospace; font-size:.78rem; overflow-wrap:anywhere; color:#cbd8f5; }
     .table-wrap { overflow-x:auto; } table { border-collapse:collapse; width:100%; min-width:560px; font-size:.86rem; } th,td { padding:9px 10px; border-top:1px solid var(--line); text-align:left; vertical-align:top; } th { color:var(--muted); font-weight:600; white-space:nowrap; } td { overflow-wrap:anywhere; }
+    .inner-list { display:grid; gap:12px; padding:12px; border-top:1px solid var(--line); }
+    .inner-card { border:1px solid var(--line); border-radius:10px; overflow:hidden; background:#0a1225; }
+    .inner-title { padding:9px 11px; color:var(--accent); background:#101a30; font-weight:700; }
+    .detail-grid { display:grid; grid-template-columns:minmax(130px,180px) minmax(0,1fr); margin:0; }
+    .detail-grid dt, .detail-grid dd { margin:0; padding:9px 11px; border-top:1px solid var(--line); }
+    .detail-grid dt { color:var(--muted); font-size:.82rem; font-weight:600; }
+    .detail-grid dd { overflow-wrap:anywhere; }
+    .sig-group { border:1px solid var(--line); border-radius:8px; padding:9px; margin:5px 0; background:#0c1529; }
+    .sig-group.mine, .sig-child.mine > .sig-child-line { border-color:var(--accent); background:#102a2c; border-radius:7px; }
+    .sig-child.mine > .sig-child-line { margin:2px -5px; padding:5px; }
+    .sig-badges { display:flex; gap:5px; align-items:center; flex-wrap:wrap; }
+    .sig-summary { padding:12px; border-top:1px solid var(--line); background:#0b1326; }
+    .sig-summary-title { display:flex; gap:10px; justify-content:space-between; align-items:center; margin-bottom:8px; }
+    .sig-summary-title h3 { margin:0; font-size:.98rem; }
+    .sig-summary-meta { display:grid; gap:5px; margin:8px 0; color:var(--muted); font-size:.82rem; }
+    .sig-head { display:flex; gap:8px; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; }
+    .sig-children { margin:7px 0 0 14px; padding-left:14px; border-left:2px solid var(--line); }
+    .sig-child { padding:4px 0; overflow-wrap:anywhere; }
+    .sig-child-line { display:flex; gap:8px; justify-content:space-between; align-items:flex-start; }
+    .pill { display:inline-block; flex:none; padding:1px 7px; border-radius:99px; font-size:.72rem; background:#263755; color:var(--muted); }
+    .pill.good { background:#254a47; color:var(--accent); }
+    .pill.warn { background:#57432a; color:var(--warn); }
+    .pill.mine { background:var(--accent); color:#08211d; font-weight:800; }
+    .address-stack { display:grid; gap:6px; }
+    .empty { color:var(--muted); }
     .log { font:ui-monospace,SFMono-Regular,Consolas,monospace; font-size:.78rem; white-space:pre-wrap; max-height:210px; overflow:auto; background:#080d1a; padding:12px; border-radius:9px; }
     .badge { font-size:.75rem; padding:2px 7px; border-radius:99px; background:#254a47; color:var(--accent); } .badge.pending { background:#57432a; color:var(--warn); }
-    @media (max-width:600px) { main{padding:18px 10px 32px}.panel{padding:13px}.row button{width:100%} table{min-width:0} thead{display:none} tr,td{display:block;width:100%} td{padding:5px 10px;border:0} td::before{content:attr(data-label);display:block;color:var(--muted);font-size:.72rem} tr{border-top:1px solid var(--line);padding:5px 0} }
+    @media (max-width:600px) { main{padding:18px 10px 32px}.panel{padding:13px}.row button{width:100%} table{min-width:0} thead{display:none} tr,td{display:block;width:100%} td{padding:5px 10px;border:0} td::before{content:attr(data-label);display:block;color:var(--muted);font-size:.72rem} tr{border-top:1px solid var(--line);padding:5px 0}.detail-grid{grid-template-columns:1fr}.detail-grid dt{padding-bottom:2px}.detail-grid dd{padding-top:2px;border-top:0}.sig-child-line{display:block}.sig-child .pill{margin-top:3px} }
   </style>
 </head>
 <body>
@@ -131,8 +163,8 @@
   const integer = value => { try { return BigInt(String(value)); } catch { return 0n; } };
   const xym = value => `${(Number(integer(value)) / 1_000_000).toLocaleString("ja-JP", {maximumFractionDigits:6})} XYM (${integer(value).toLocaleString()} microXYM)`;
   const deadline = value => {
-    const seconds=Number(integer(value));
-    return seconds ? new Date((epochAdjustment + seconds) * 1000).toLocaleString("ja-JP") : "—";
+    const milliseconds=Number(integer(value));
+    return milliseconds ? new Date(epochAdjustment * 1000 + milliseconds).toLocaleString("ja-JP") : "—";
   };
   const printableAddress = value => {
     const text=String(value ?? "");
@@ -226,53 +258,173 @@
     "16705":"Aggregate Complete", "AGGREGATE_COMPLETE":"Aggregate Complete",
     "16961":"Aggregate Bonded", "AGGREGATE_BONDED":"Aggregate Bonded",
   })[typeKey(type)] ?? `Type ${type ?? "—"}`;
-  const innerDetail = tx => {
-    const type=typeKey(tx.type);
-    if(type==="16724" || type==="TRANSFER") {
-      const mosaics=(tx.mosaics??[]).map(m=>`${m.id}: ${m.amount}`).join(" / ") || "なし";
-      return `送金先: ${printableAddress(tx.recipientAddress)}　モザイク: ${mosaics}　メッセージ: ${tx.message ?? "なし"}`;
-    }
-    if(type==="16725" || type==="MULTISIG_ACCOUNT_MODIFICATION") return `承認数の変更: ${(tx.minApprovalDelta ?? 0) >= 0 ? "+" : ""}${tx.minApprovalDelta ?? 0}　削除承認数の変更: ${(tx.minRemovalDelta ?? 0) >= 0 ? "+" : ""}${tx.minRemovalDelta ?? 0}　連署者を追加: ${(tx.addressAdditions??[]).map(printableAddress).join(", ") || "なし"}　連署者を削除: ${(tx.addressDeletions??[]).map(printableAddress).join(", ") || "なし"}`;
-    return "詳細は取引種別により異なります";
-  };
   function txRows(tx) {
     return (tx.transactions ?? []).map((item, index) => {
       const inner=item.transaction ?? item;
       return {
-      no:index+1,
-      type: typeName(inner.type),
-      signer: inner.signerPublicKey ? address(inner.signerPublicKey) : "—",
-      detail: innerDetail(inner),
+        no:index+1,
+        type:typeName(inner.type),
+        signer:inner.signerPublicKey ? address(inner.signerPublicKey) : "—",
+        inner,
       };
     });
   }
-  async function multisigRequirements(detail) {
-    const signers=[...new Set(txRows(detail.transaction ?? detail).map(row=>row.signer).filter(signer=>signer!=="—"))];
-    const entries=await Promise.all(signers.map(async signer=>{
-      try {
-        const multisig=(await api(`/account/${signer}/multisig`)).multisig;
-        const required=Number(multisig.minApproval ?? 0);
-        return [signer.toUpperCase(), required > 0 ? `${required}-of-${multisig.cosignatoryAddresses?.length ?? 0}` : "単独署名"];
-      } catch { return [signer.toUpperCase(),"取得不可"]; }
-    }));
-    return new Map(entries);
+
+  const hasSignature = signature => /[1-9A-F]/i.test(signature?.toString?.() ?? String(signature ?? ""));
+  function aggregateSignedAddresses(tx) {
+    const publicKeys=[
+      ...(hasSignature(tx.signature) ? [tx.signerPublicKey] : []),
+      ...(tx.cosignatures ?? []).map(c=>c.signerPublicKey),
+    ];
+    return new Set(publicKeys.map(key=>{ try{return address(key).toUpperCase();}catch{return "";} }).filter(Boolean));
   }
-  function transactionCard(detail, action, requirements=new Map()) {
+  function graphEntries(graph) {
+    const entries=new Map();
+    (graph ?? []).filter(level=>Number(level.level)>=0).flatMap(level=>level.multisigEntries ?? []).forEach(entry=>{
+      const multisig=entry.multisig;
+      const accountAddress=printableAddress(multisig.accountAddress).toUpperCase();
+      if(Number(multisig.minApproval ?? 0)>0) entries.set(accountAddress,multisig);
+    });
+    return entries;
+  }
+  function requirementGroup(accountAddress, entries, signedAddresses, ancestors=new Set()) {
+    const key=accountAddress.toUpperCase();
+    const multisig=entries.get(key);
+    if(!multisig) {
+      const approved=signedAddresses.has(key) ? 1 : 0;
+      return {kind:"account",address:accountAddress,required:1,approved,missing:1-approved,satisfied:approved===1,children:[]};
+    }
+    if(ancestors.has(key)) return {kind:"error",address:accountAddress,error:"マルチシグ循環を検出",children:[]};
+    const nextAncestors=new Set(ancestors).add(key);
+    const children=(multisig.cosignatoryAddresses ?? []).map(value=>{
+      const child=printableAddress(value);
+      return requirementGroup(child,entries,signedAddresses,nextAncestors);
+    });
+    const required=Number(multisig.minApproval ?? 0);
+    const approved=children.filter(child=>child.satisfied).length;
+    return {kind:"multisig",address:accountAddress,required,approved,missing:Math.max(0,required-approved),satisfied:approved>=required,children};
+  }
+  async function inspectAddressRequirement(accountAddress, signedAddresses) {
+    try {
+      const graph=await api(`/account/${accountAddress}/multisig/graph`);
+      const entries=graphEntries(graph);
+      const multisig=entries.get(accountAddress.toUpperCase()) ?? null;
+      return {group:requirementGroup(accountAddress,entries,signedAddresses),multisig};
+    } catch(error) {
+      if(error.status===404) return {group:requirementGroup(accountAddress,new Map(),signedAddresses),multisig:null};
+      return {group:{kind:"error",address:accountAddress,error:`取得エラー${error.status ? ` (${error.status})` : ""}`,children:[]},multisig:null,error};
+    }
+  }
+  async function multisigRequirements(detail) {
+    const tx=detail.transaction ?? detail;
+    const rows=txRows(tx);
+    const signedAddresses=aggregateSignedAddresses(tx);
+    const signerAddresses=[...new Set(rows.map(row=>row.signer).filter(value=>value && value!=="—").map(value=>value.toUpperCase()))];
+    const addedAddresses=[...new Set(rows.flatMap(row=>(row.inner.addressAdditions ?? []).map(printableAddress)).filter(value=>value && value!=="—").map(value=>value.toUpperCase()))];
+    const addresses=[...new Set([...signerAddresses,...addedAddresses])];
+    const inspected=await Promise.all(addresses.map(async value=>[value,await inspectAddressRequirement(value,signedAddresses)]));
+    const infos=new Map(inspected);
+    const groups=[
+      ...signerAddresses.map(value=>({heading:"取引の承認",...infos.get(value).group})),
+      ...addedAddresses.map(value=>{
+        const info=infos.get(value);
+        return {heading:info?.multisig ? "追加マルチシグのオプトイン" : "追加cosignerのオプトイン",...info.group};
+      }),
+    ];
+    return {
+      infos,
+      signedAddresses,
+      groups,
+      complete:groups.every(group=>group.satisfied),
+      currentAddress:account?.address?.toString?.().toUpperCase() ?? "",
+    };
+  }
+
+  function renderRequirement(group, heading, currentAddress="") {
+    if(!group) return `<span class="empty">情報なし</span>`;
+    const isMine=value=>Boolean(currentAddress) && value?.toUpperCase?.()===currentAddress;
+    const mine=isMine(group.address);
+    if(group.kind==="error") return `<div class="sig-group ${mine ? "mine" : ""}"><div class="sig-head"><span><strong>${esc(heading)}</strong><br><span class="hash">${esc(group.address)}</span></span><span class="sig-badges">${mine ? '<span class="pill mine">この鍵</span>' : ""}<span class="pill warn">${esc(group.error)}</span></span></div></div>`;
+    const rule=group.kind==="multisig" ? `${group.required}-of-${group.children.length}` : "本人署名";
+    const state=group.satisfied ? "署名済み" : group.kind==="multisig" ? `あと${group.missing}` : "未署名";
+    const renderChildren=children => children?.length ? `<div class="sig-children">${children.map(child=>{
+      const childIsMine=isMine(child.address);
+      const childState=child.satisfied ? "署名済み" : child.kind==="multisig" ? `あと${child.missing}` : "署名候補";
+      const childRule=child.kind==="multisig" ? `<span class="note">${child.required}-of-${child.children.length}</span>` : "";
+      return `<div class="sig-child ${childIsMine ? "mine" : ""}"><div class="sig-child-line"><span><span class="hash">${esc(child.address)}</span>${childRule ? `<br>${childRule}` : ""}</span><span class="sig-badges">${childIsMine ? '<span class="pill mine">この鍵</span>' : ""}<span class="pill ${child.satisfied ? "good" : child.kind==="multisig" ? "warn" : ""}">${esc(childState)}</span></span></div>${renderChildren(child.children)}</div>`;
+    }).join("")}</div>` : "";
+    const children=renderChildren(group.children);
+    return `<div class="sig-group ${mine ? "mine" : ""}"><div class="sig-head"><span><strong>${esc(heading)}</strong><br><span class="hash">${esc(group.address)}</span></span><span class="sig-badges">${mine ? '<span class="pill mine">この鍵</span>' : ""}<span class="pill ${group.satisfied ? "good" : "warn"}">${esc(state)}</span></span></div><div class="note">${esc(rule)} ／ 承認 ${esc(group.approved)}/${esc(group.required)}</div>${children}</div>`;
+  }
+  const detailRow = (label,value) => `<dt>${esc(label)}</dt><dd>${value}</dd>`;
+  const addressList = values => values.length
+    ? `<div class="address-stack">${values.map(value=>`<span class="hash">${esc(value)}</span>`).join("")}</div>`
+    : `<span class="empty">なし</span>`;
+  function renderSignatureSummary(requirements) {
+    const groups=requirements.groups ?? [];
+    const satisfied=groups.filter(group=>group.satisfied).length;
+    const complete=requirements.complete;
+    const signed=[...(requirements.signedAddresses ?? [])];
+    return `<section class="sig-summary">
+      <div class="sig-summary-title"><h3>署名要件</h3><span class="pill ${complete ? "good" : "warn"}">${complete ? "すべて満たしています" : `不足あり (${satisfied}/${groups.length})`}</span></div>
+      <div class="sig-summary-meta"><span>必須グループ: ${satisfied}/${groups.length} 完了</span><span>署名済みアドレス: ${signed.length ? signed.map(esc).join(", ") : "なし"}</span></div>
+      ${groups.map(group=>renderRequirement(group,group.heading,requirements.currentAddress)).join("") || '<span class="empty">署名要件はありません</span>'}
+    </section>`;
+  }
+  function renderInnerCard(row, requirements) {
+    const inner=row.inner;
+    const type=typeKey(inner.type);
+    const signerInfo=requirements.infos.get(row.signer.toUpperCase());
+    let body=detailRow("署名者",`<span class="hash">${esc(row.signer)}</span>`)+
+      detailRow("現在の署名要件",renderRequirement(signerInfo?.group,"取引の承認",requirements.currentAddress));
+
+    if(type==="16725" || type==="MULTISIG_ACCOUNT_MODIFICATION") {
+      const additions=(inner.addressAdditions ?? []).map(printableAddress);
+      const deletions=(inner.addressDeletions ?? []).map(printableAddress);
+      const current=signerInfo?.multisig;
+      const currentCount=current?.cosignatoryAddresses?.length ?? 0;
+      const currentApproval=Number(current?.minApproval ?? 0);
+      const currentRemoval=Number(current?.minRemoval ?? 0);
+      const nextCount=currentCount+additions.length-deletions.length;
+      const nextApproval=currentApproval+Number(inner.minApprovalDelta ?? 0);
+      const nextRemoval=currentRemoval+Number(inner.minRemovalDelta ?? 0);
+      const currentState=signerInfo?.group?.kind==="error"
+        ? `<span class="pill warn">${esc(signerInfo.group.error)}</span>`
+        : current ? `${currentApproval}-of-${currentCount} マルチシグ` : "通常アカウント";
+      const nextState=signerInfo?.group?.kind==="error"
+        ? `<span class="empty">現在値を取得できないため算出不可</span>`
+        : `承認 ${nextApproval}-of-${nextCount} ／ 削除承認 ${nextRemoval}-of-${nextCount}`;
+      body+=detailRow("現在の状態",currentState)+
+        detailRow("変更後",nextState)+
+        detailRow("追加するcosigner",addressList(additions))+
+        detailRow("削除するcosigner",addressList(deletions));
+    } else if(type==="16724" || type==="TRANSFER") {
+      const mosaics=(inner.mosaics ?? []).map(m=>`${esc(m.id ?? m.mosaicId)}: ${esc(m.amount)}`).join(" / ") || "なし";
+      body+=detailRow("送金先",`<span class="hash">${esc(printableAddress(inner.recipientAddress))}</span>`)+
+        detailRow("モザイク",mosaics)+detailRow("メッセージ",esc(inner.message ?? "なし"));
+    } else {
+      body+=detailRow("内容",`<span class="empty">この取引種別の詳細表示は未対応です</span>`);
+    }
+    return `<section class="inner-card"><div class="inner-title">#${row.no} ${esc(row.type)}</div><dl class="detail-grid">${body}</dl></section>`;
+  }
+  function transactionCard(detail, action, requirements={infos:new Map(),signedAddresses:new Set()}) {
     const tx=detail.transaction ?? detail;
     const hash=detail.meta?.hash ?? detail.hash ?? "";
     const rows=txRows(tx);
+    const aggregateName=typeName(tx.type);
+    const badgeName=aggregateName.includes("Complete") ? "Complete" : "Bonded";
     const wrap=document.createElement("article"); wrap.className="tx";
-    wrap.innerHTML=`<header><span><span class="badge pending">Bonded</span> ${esc(short(hash))}</span><button>この Bonded に連署</button></header>
+    wrap.innerHTML=`<header><span><span class="badge ${badgeName==="Bonded" ? "pending" : ""}">${badgeName}</span> ${esc(short(hash))}</span>${action ? "<button>この Bonded に連署</button>" : ""}</header>
       <div class="table-wrap"><table><tbody>
         <tr><th>hash</th><td class="hash">${esc(hash)}</td></tr>
-        <tr><th>Aggregate種別</th><td>${esc(typeName(tx.type))}</td></tr>
+        <tr><th>Aggregate種別</th><td>${esc(aggregateName)}</td></tr>
         <tr><th>起案者</th><td>${esc(tx.signerPublicKey ? address(tx.signerPublicKey) : "—")}</td></tr>
         <tr><th>最大手数料</th><td>${esc(xym(tx.maxFee ?? tx.fee))}</td></tr>
         <tr><th>有効期限</th><td>${esc(deadline(tx.deadline))}</td></tr>
         <tr><th>現在の連署数</th><td>${esc(tx.cosignatures?.length ?? 0)}</td></tr>
-      </tbody></table></div>
-      <div class="table-wrap"><table><thead><tr><th>#</th><th>取引種別</th><th>署名者</th><th>署名要件</th><th>内容</th></tr></thead><tbody>${rows.map(r=>`<tr><td data-label="#">${esc(r.no)}</td><td data-label="取引種別">${esc(r.type)}</td><td data-label="署名者">${esc(r.signer)}</td><td data-label="署名要件">${esc(requirements.get(r.signer.toUpperCase()) ?? "—")}</td><td data-label="内容">${esc(r.detail)}</td></tr>`).join("") || "<tr><td>embedded transaction がありません</td></tr>"}</tbody></table></div>`;
-    wrap.querySelector("button").onclick=action; return wrap;
+      </tbody></table></div>${renderSignatureSummary(requirements)}<div class="inner-list">${rows.map(row=>renderInnerCard(row,requirements)).join("") || '<span class="empty">embedded transaction がありません</span>'}</div>`;
+    if(action) wrap.querySelector("button").onclick=event=>runButtonAction(event.currentTarget,action);
+    return wrap;
   }
   async function subscribe(topic, callback) {
     await ensureNodeConnection();
@@ -307,7 +459,7 @@
       $("bondedPanel").classList.remove("hidden"); $("completePanel").classList.add("hidden");
       for (const detail of details) {
         const requirements=await multisigRequirements(detail);
-        list.append(transactionCard(detail,()=>detachedCosign(detail).catch(showError),requirements));
+        list.append(transactionCard(detail,()=>detachedCosign(detail),requirements));
       }
       setStatus(`${details.length} 件のBondedが見つかりました。内容を確認してください。`,"warn");
     } else {
@@ -335,8 +487,12 @@
     if(!Array.isArray(tx.transactions)) throw new Error("Aggregate transaction payloadではありません。");
     return {payload,tx,hash:facade.hashTransaction(tx).toString()};
   }
-  function showPayload(tx,hash) { $("payloadInfo").replaceChildren(transactionCard({meta:{hash},transaction:tx},()=>{})); $("payloadInfo").querySelector("button").remove(); }
-  async function inspectPayload() { await init(); createAccount(); const {tx,hash}=parsePayload(); showPayload(tx,hash); setStatus(`payload hash: ${hash}`,"good"); }
+  async function showPayload(tx,hash) {
+    const detail={meta:{hash},transaction:tx};
+    const requirements=await multisigRequirements(detail);
+    $("payloadInfo").replaceChildren(transactionCard(detail,null,requirements));
+  }
+  async function inspectPayload() { await init(); createAccount(); const {tx,hash}=parsePayload(); await showPayload(tx,hash); setStatus(`payload hash: ${hash}`,"good"); }
   async function cosignComplete() {
     await init(); createAccount(); const {payload,tx,hash}=parsePayload();
     if((tx.cosignatures??[]).some(c=>hex(c.signerPublicKey)===hex(account.publicKey))) throw new Error("このアカウントはすでに連署済みです。");
@@ -347,12 +503,20 @@
     setStatus("COMPLETE ANNOUNCED — ブロック確定を待機中", "warn"); log(JSON.stringify(response));
   }
   function showError(error) { console.error(error); setStatus(error.message ?? String(error),"error"); log(`ERROR ${error.message ?? error}`); }
-  $("load").onclick=()=>loadBonded().catch(showError);
-  $("selectNode").onclick=()=>selectAndConnectNode(true).catch(showError);
+  async function runButtonAction(button,action) {
+    if(button.disabled) return;
+    button.disabled=true;
+    button.classList.add("busy");
+    try { await action(); }
+    catch(error) { showError(error); }
+    finally { button.classList.remove("busy"); button.disabled=false; }
+  }
+  $("load").onclick=event=>runButtonAction(event.currentTarget,loadBonded);
+  $("selectNode").onclick=event=>runButtonAction(event.currentTarget,()=>selectAndConnectNode(true));
   $("modeBonded").onclick=()=>selectMode("bonded");
   $("modeComplete").onclick=()=>selectMode("complete");
-  $("inspectPayload").onclick=()=>inspectPayload().catch(showError);
-  $("cosignComplete").onclick=()=>cosignComplete().catch(showError);
+  $("inspectPayload").onclick=event=>runButtonAction(event.currentTarget,inspectPayload);
+  $("cosignComplete").onclick=event=>runButtonAction(event.currentTarget,cosignComplete);
   ensureNodeConnection().catch(showError);
 </script>
 </body>
