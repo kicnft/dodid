@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Symbol Cosigner Verify</title>
+  <style>
+    :root { --bg:#0b1020; --panel:#131d33; --line:#2b3b5e; --ink:#f2f6ff; --muted:#aab7d2; --accent:#5de4c1; --warn:#ffc369; --danger:#ff7a96; }
+    * { box-sizing:border-box; }
+    body { margin:0; min-height:100vh; background:linear-gradient(145deg,#101b37,#080c18 60%); color:var(--ink); font:16px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif; }
+    main { width:min(780px,100%); margin:auto; padding:24px 16px 48px; }
+    h1 { margin:0 0 4px; font-size:1.55rem; } h2 { font-size:1.08rem; margin:0 0 12px; }
+    p { margin:0; } .sub,.note { color:var(--muted); font-size:.9rem; }
+    .panel { background:rgba(19,29,51,.96); border:1px solid var(--line); border-radius:14px; margin-top:16px; padding:16px; box-shadow:0 12px 28px #0003; }
+    label { display:block; color:var(--muted); font-size:.86rem; margin:12px 0 5px; }
+    input,textarea { display:block; width:100%; color:var(--ink); background:#090f20; border:1px solid var(--line); border-radius:9px; padding:11px; font:inherit; }
+    input[readonly] { color:var(--accent); } textarea { min-height:118px; resize:vertical; overflow-wrap:anywhere; }
+    button { appearance:none; border:0; border-radius:9px; padding:10px 14px; font:inherit; font-weight:700; background:var(--accent); color:#08211d; cursor:pointer; box-shadow:0 4px 0 #0009,0 8px 18px #0004; transition:transform .08s ease,box-shadow .08s ease; }
+    button:active:not(:disabled) { transform:translateY(3px); box-shadow:0 1px 0 #0009,0 3px 8px #0004; } button:disabled { opacity:.5; cursor:not-allowed; }
+    button.secondary { color:var(--ink); background:#273958; } button:focus-visible { outline:3px solid #ffffffaa; outline-offset:3px; }
+    .row { display:flex; gap:10px; align-items:end; flex-wrap:wrap; } .row label { flex:1 1 300px; margin:0; } .primary { width:100%; margin-top:14px; }
+    .state { margin-top:12px; padding:10px 12px; border-radius:9px; background:#0a1225; color:var(--muted); overflow-wrap:anywhere; }
+    .state.good { color:var(--accent); } .state.warn { color:var(--warn); } .state.error { color:var(--danger); }
+    .hash { font:ui-monospace,SFMono-Regular,Consolas,monospace; font-size:.82rem; overflow-wrap:anywhere; }
+    .detail { display:grid; grid-template-columns:150px minmax(0,1fr); margin:12px 0 0; border:1px solid var(--line); border-radius:9px; overflow:hidden; }
+    .detail dt,.detail dd { margin:0; padding:9px 11px; border-top:1px solid var(--line); overflow-wrap:anywhere; } .detail dt { color:var(--muted); } .detail dt:first-child,.detail dt:first-child+dd { border-top:0; }
+    .hidden { display:none; } a { color:var(--accent); }
+    @media (max-width:600px) { main { padding:18px 10px 32px; } .panel { padding:13px; } .row button { width:100%; } .detail { grid-template-columns:1fr; } .detail dt { padding-bottom:2px; } .detail dd { padding-top:2px; border-top:0; } }
+  </style>
+</head>
+<body>
+<main>
+  <h1>連署者の検証</h1>
+  <p class="sub">提示された署名だけで、直近３ブロックのハッシュと対象アカウントの連署者を照合します。</p>
+  <section class="panel">
+    <div class="row">
+      <label>接続中のSymbolノード<input id="node" value="自動選択します" readonly></label>
+      <button id="selectNode" class="secondary">ノードを再選択</button>
+    </div>
+    <div id="nodeStatus" class="state">ノードを選択中…</div>
+  </section>
+  <section class="panel">
+    <h2>署名を検証</h2>
+    <label>検証したいマルチシグアカウントのアドレス
+      <input id="targetAddress" inputmode="text" autocomplete="off" spellcheck="false" placeholder="Nから始まるアドレス">
+    </label>
+    <label>連署者から提示された署名
+      <textarea id="signature" spellcheck="false" placeholder="128文字の16進数"></textarea>
+    </label>
+    <button id="verify" class="primary" disabled>検証する</button>
+    <div id="result" class="state hidden" aria-live="polite"></div>
+    <dl id="detail" class="detail hidden"></dl>
+  </section>
+  <p class="note" style="margin-top:14px">秘密鍵は入力しません。署名の作成は <a href="./cosign.html">cosign.html</a> で行えます。</p>
+</main>
+<script src="./config.js"></script>
+<script src="./node-selector.js"></script>
+<script src="./block-proof.js"></script>
+<script type="module">
+  const $=id=>document.getElementById(id);
+  const candidates=[...new Set(configSymbolApplication.nodes)];
+  const options={selectCount:5,minConsensus:3,timeoutMs:6000,retry:2,retryStrategy:"resample"};
+  const esc=value=>String(value ?? "").replace(/[&<>"']/g,char=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[char]));
+  const show=(text,kind="")=>{ const el=$("result"); el.textContent=text; el.className=`state ${kind}`; };
+  let nodeUrl="",sdk,core,symbol,facade,busy=false;
+
+  async function selectNode() {
+    $("nodeStatus").textContent="同期しているノードを選択中…";
+    $("nodeStatus").className="state warn";
+    $("verify").disabled=true;
+    const selected=await NodeSelector.selectBestNodeWithRetry(candidates,options);
+    if(!selected?.selected?.nodeUrl) throw new Error("利用可能なSymbolノードが見つかりませんでした。");
+    nodeUrl=NodeSelector.normalizeNodeUrl(selected.selected.nodeUrl);
+    $("node").value=nodeUrl;
+    $("nodeStatus").textContent=`接続先: ${nodeUrl}`;
+    $("nodeStatus").className="state good";
+    $("verify").disabled=false;
+  }
+
+  async function api(path) {
+    const response=await fetch(nodeUrl+path);
+    if(!response.ok) {
+      const error=new Error(`${response.status} ${response.statusText}: ${path}`);
+      error.status=response.status;
+      throw error;
+    }
+    return response.json();
+  }
+
+  async function initSdk() {
+    if(!sdk) {
+      sdk=await import("https://www.unpkg.com/symbol-sdk@3.3.0/dist/bundle.web.js");
+      core=sdk.core;
+      symbol=sdk.symbol;
+    }
+    if(!facade) {
+      const props=await api("/network/properties");
+      facade=new symbol.SymbolFacade(props.network.identifier);
+    }
+  }
+
+  function normalAddress(value) {
+    const text=String(value ?? "").toUpperCase().replace(/-/g,"");
+    if(/^[NT][A-Z2-7]{38}$/.test(text)) return text;
+    if(/^[0-9A-F]{48}$/.test(text)) return symbol.Address.fromDecodedAddressHexString(text).toString();
+    throw new Error("アドレスの形式が正しくありません。");
+  }
+
+  function cosignerPaths(graph,root) {
+    const entries=new Map();
+    for(const level of graph ?? []) {
+      if(Number(level.level)<0) continue;
+      for(const entry of level.multisigEntries ?? []) {
+        const info=entry.multisig;
+        if(Number(info.minApproval ?? 0)>0 || (info.cosignatoryAddresses ?? []).length)
+          entries.set(normalAddress(info.accountAddress),info);
+      }
+    }
+    if(!entries.has(root)) throw new Error("対象アカウントのマルチシグ構成を取得できませんでした。");
+    const paths=new Map();
+    function visit(current,path,seen) {
+      if(seen.has(current)) return;
+      const info=entries.get(current);
+      if(!info) { paths.set(current,path); return; }
+      const nextSeen=new Set(seen).add(current);
+      for(const child of info.cosignatoryAddresses ?? []) {
+        const address=normalAddress(child);
+        visit(address,[...path,address],nextSeen);
+      }
+    }
+    visit(root,[root],new Set());
+    return paths;
+  }
+
+  function detailRow(label,value,mono=false) {
+    return `<dt>${esc(label)}</dt><dd${mono?' class="hash"':""}>${esc(value)}</dd>`;
+  }
+
+  async function verifyProof() {
+    if(!nodeUrl) throw new Error("ノードに接続していません。");
+    await initSdk();
+    const root=normalAddress($("targetAddress").value.trim());
+    const signature=$("signature").value.trim().toUpperCase();
+    if(!SymbolBlockProof.isHex(signature,128)) throw new Error("署名は128文字の16進数で入力してください。");
+    show("直近のブロックと連署者を照合中…","warn");
+    $("detail").classList.add("hidden");
+    const chain=await api("/chain/info");
+    const height=Number(chain.height);
+    if(!Number.isSafeInteger(height) || height<3) throw new Error("直近のブロック高を取得できませんでした。");
+    const [blocks,graph]=await Promise.all([
+      Promise.all([height,height-1,height-2].map(h=>api(`/blocks/${h}`))),
+      api(`/account/${root}/multisig/graph`)
+    ]);
+    const hashes=blocks.map((block,index)=>{
+      if(Number(block.block?.height)!==height-index || !SymbolBlockProof.isHex(block.meta?.hash,64))
+        throw new Error("直近ブロックのハッシュを確認できませんでした。");
+      return {height:height-index,hash:block.meta.hash};
+    });
+    const paths=cosignerPaths(graph,root);
+    if(!paths.size) throw new Error("連署者が見つかりませんでした。");
+    const accounts=await Promise.all([...paths.keys()].map(async address=>({
+      address,info:await api(`/accounts/${address}`).catch(error=>({error}))
+    })));
+    let match=null;
+    let unavailable=0;
+    for(const {address,info} of accounts) {
+      const publicKey=String(info.account?.publicKey ?? "").toUpperCase();
+      if(!SymbolBlockProof.isHex(publicKey,64) || /^0{64}$/.test(publicKey)) { unavailable++; continue; }
+      if(facade.network.publicKeyToAddress(new core.PublicKey(publicKey)).toString()!==address) {
+        unavailable++;
+        continue;
+      }
+      for(const block of hashes) {
+        if(SymbolBlockProof.verify(block.hash,signature,publicKey,core,symbol)) {
+          match={address,publicKey,block,path:paths.get(address)};
+          break;
+        }
+      }
+      if(match) break;
+    }
+    if(!match) {
+      show(unavailable
+        ? `判定保留：${unavailable}人の連署者の公開鍵を取得できませんでした。ノードを再選択して再試行してください。`
+        : "該当なし：直近３ブロックのどのハッシュについても、対象の連署者の署名とは一致しません。",
+      unavailable ? "warn" : "error");
+      return;
+    }
+    show("検証成功：対象アカウントの連署者による署名です。","good");
+    $("detail").innerHTML=detailRow("署名した連署者",match.address,true)+
+      detailRow("公開鍵",match.publicKey,true)+
+      detailRow("対象ブロック高",match.block.height)+
+      detailRow("ブロックハッシュ",match.block.hash,true)+
+      detailRow("連署経路",match.path.join(" → "),true);
+    $("detail").classList.remove("hidden");
+  }
+
+  async function run(button,action) {
+    if(busy) return;
+    busy=true; button.disabled=true;
+    try { await action(); }
+    catch(error) { console.error(error); show(error.message ?? String(error),"error"); }
+    finally { busy=false; button.disabled=false; $("verify").disabled=!nodeUrl; }
+  }
+  $("selectNode").onclick=event=>run(event.currentTarget,selectNode);
+  $("verify").onclick=event=>run(event.currentTarget,verifyProof);
+  for(const id of ["targetAddress","signature"]) $(id).oninput=()=>{
+    $("result").classList.add("hidden");
+    $("detail").classList.add("hidden");
+  };
+  selectNode().catch(error=>{ console.error(error); $("nodeStatus").textContent=error.message; $("nodeStatus").className="state error"; });
+</script>
+</body>
+</html>
